@@ -131,7 +131,7 @@ function makeH(S) {
   const r2 = x => Math.round(x * 100) / 100;
   const fix = x => r2(x * k);
   const tarifa = b => {
-    const A = 11e6 * k, B = 16.5e6 * k, C = 33e6 * k;
+    const A = 11e6, B = 16.5e6, C = 33e6;
     let t = Math.min(b, A) * 0.02;
     if (b > A) t += (Math.min(b, B) - A) * 0.015;
     if (b > B) t += (Math.min(b, C) - B) * 0.0125;
@@ -1013,7 +1013,7 @@ function tbl(head, rows, nums) {
 function refHTML() {
   const b = makeH({ adj: false }), j = makeH({ adj: true });
   let h = '<section class="blk" style="max-width:none"><h3>Novedad 2026: UIF Reportes</h3><div class="note bad">Según lineamientos del 6 de julio de 2026, todo notario habilitado debe estar inscrito en UIF Reportes. El plazo transitorio venció el 6 de octubre de 2026. Fuente secundaria: confirme en los lineamientos oficiales (art. 15 ter, Ley 7786; multas de 2 a 100 salarios base, art. 81).</div></section>';
-  h += '<section class="blk" style="max-width:none"><h3>Tarifa General notarial (art. 74)</h3>' + tbl(["Tramo", "Porcentaje", "Base 2015", "Con ajuste de 10 %"], [["Hasta", "2 %", fmt(11e6), fmt(12.1e6)], ["Exceso hasta", "1,5 %", fmt(16.5e6), fmt(18.15e6)], ["Exceso hasta", "1,25 %", fmt(33e6), fmt(36.3e6)], ["Exceso de", "1 %", fmt(33e6), fmt(36.3e6)]], [2, 3]) + "</section>";
+  h += '<section class="blk" style="max-width:none"><h3>Tarifa General notarial (art. 74)</h3>' + tbl(["Tramo", "Porcentaje", "Límite del tramo"], [["Hasta", "2 %", fmt(11e6)], ["Exceso hasta", "1,5 %", fmt(16.5e6)], ["Exceso hasta", "1,25 %", fmt(33e6)], ["Exceso de", "1 %", fmt(33e6)]], [2]) + '<p class="hint">El aumento del 10 % del Arancel 2019 aplica a honorarios de monto fijo; no modifica estos límites de la tarifa porcentual (art. 74).</p></section>';
   const CT = [["Hasta ₡250.000", 0], ["₡250.000 a ₡1.000.000", 1000], ["₡1.000.000 a ₡5.000.000", 2000], ["₡5.000.000 a ₡25.000.000", 5000], ["₡25.000.000 a ₡50.000.000", 10000], ["₡50.000.000 a ₡100.000.000", 15000], ["₡100.000.000 a ₡500.000.000", 25000], ["Más de ₡500.000.000", 50000], ["Acto de cuantía inestimable, certificación, autenticación (cada uno)", 250]];
   h += '<section class="blk" style="max-width:none"><h3>Timbre del Colegio de Abogados (art. 109)</h3>' + tbl(["Cuantía", "Base 2015", "Ajustado (+10 %)"], CT.map(r => [r[0], r[1] ? fmt(r[1]) : "Exento", r[1] ? fmt(j.fix(r[1])) : "Exento"]), [1, 2]) + '<p class="hint">En traspasos se toma el mayor entre valor real y fiscal. Si el documento contiene varias operaciones, se suman.</p></section>';
   h += '<section class="blk" style="max-width:none"><h3>Otros timbres e impuestos</h3>' + tbl(["Rubro", "Tarifa"], [["Derechos de registro de inmuebles (Ley 4564)", "₡5 por millar (0,5 %)"], ["Impuesto de traspaso de inmuebles (Ley 6999)", "1,5 %"], ["Impuesto de traspaso de vehículos", "2,5 %"], ["Timbre municipal (Ley 7794)", "₡2 por millar"], ["Timbre Agrario, traspaso de inmuebles", "₡1,50 por millar; vivienda ₡1,25 hasta un tope; interés social ₡1"], ["Timbre Agrario, vehículos", "₡3 por millar"], ["Hipoteca por el precio o parte del precio", "No paga timbre Agrario"], ["Archivos: documento para inscripción", "₡10 si la cuantía es menor a ₡100.000; ₡20 si es mayor o inestimable"], ["Archivos: índice quincenal", "₡20 por fórmula"], ["Archivos: tomo concluido depositado", "₡200"], ["Derechos de inscripción de vehículos", "₡1 por millar; traspaso ₡5 por millar (mínimo ₡2.000)"], ["Parques Nacionales (vehículos)", "₡500"], ["Autenticación de firma", "Fiscal ₡125; hoja ₡6,25 y ₡2,50 (mínimo ₡12,50); Archivo ₡5"]]) + "</section>";
