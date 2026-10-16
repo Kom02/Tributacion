@@ -1,0 +1,7 @@
+{
+  "appId": "cr.notarial.cotizador",
+  "appName": "Cotizador Notarial",
+  "webDir": "www",
+  "backgroundColor": "#EDF0ED",
+  "android": { "allowMixedContent": false }
+}

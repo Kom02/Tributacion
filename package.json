@@ -1,0 +1,22 @@
+{
+  "name": "cotizador-notarial",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cotizador Notarial de Costa Rica",
+  "scripts": {
+    "prepare:www": "node scripts/prepare-www.js",
+    "icons": "capacitor-assets generate --android",
+    "sync": "npm run prepare:www && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.1",
+    "@capacitor/core": "^6.2.1",
+    "@fontsource/ibm-plex-mono": "^5.1.0",
+    "@fontsource/ibm-plex-sans": "^5.1.0",
+    "@fontsource/source-serif-4": "^5.1.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.2.1"
+  }
+}

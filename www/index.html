@@ -1,0 +1,1097 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Cotizador Notarial</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+/* Layout: lista de actos a la izquierda, a la derecha el acto elegido con liquidación tipo recibo y fichas */
+:root{
+  --bg:#EDF0ED; --surface:#F8FAF8; --fg:#16211D; --muted:#55645E; --line:#CDD6D0;
+  --accent:#0B5D52; --accent-fg:#FFFFFF; --accent-soft:#D5E8E2;
+  --ok:#1E6B3A; --ok-soft:#D8ECDD; --warn:#8A4B0F; --warn-soft:#F3E3CC; --pend:#9A2F25; --pend-soft:#F4D9D5;
+  --serif:"Source Serif 4",Georgia,serif; --sans:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#101714; --surface:#17211D; --fg:#E4ECE8; --muted:#97A8A0; --line:#2A3832;
+  --accent:#5CC8B0; --accent-fg:#06201A; --accent-soft:#1D3A33;
+  --ok:#7FD39A; --ok-soft:#1A3324; --warn:#E6B26B; --warn-soft:#3A2D18; --pend:#F0A094; --pend-soft:#3E1F1B; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#101714; --surface:#17211D; --fg:#E4ECE8; --muted:#97A8A0; --line:#2A3832;
+  --accent:#5CC8B0; --accent-fg:#06201A; --accent-soft:#1D3A33;
+  --ok:#7FD39A; --ok-soft:#1A3324; --warn:#E6B26B; --warn-soft:#3A2D18; --pend:#F0A094; --pend-soft:#3E1F1B; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14.5px;line-height:1.5;
+  padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1260px;margin:0 auto}
+h1,h2,h3{font-family:var(--serif);font-weight:600;margin:0;text-wrap:balance}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;margin-bottom:14px}
+.top h1{font-size:28px;letter-spacing:-.01em}
+.top p{margin:2px 0 0;color:var(--muted);font-size:13px}
+.views{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:3px}
+.views button,.sub button{border:0;background:none;padding:7px 14px;border-radius:6px;cursor:pointer;color:var(--muted);font-weight:500;white-space:nowrap}
+.views button[aria-selected=true],.sub button[aria-selected=true]{background:var(--accent);color:var(--accent-fg)}
+.bar{display:flex;flex-wrap:wrap;gap:10px 22px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:18px;font-size:13px}
+.bar label{display:flex;align-items:center;gap:6px;color:var(--muted)}
+.bar select,.bar input[type=text]{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:4px 8px}
+.bar .conv input{width:92px}
+.bar .out{font-family:var(--mono);color:var(--fg)}
+.grid{display:grid;grid-template-columns:270px minmax(0,1fr);gap:22px;align-items:start}
+aside{position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px);max-height:calc(100vh - 24px);overflow:auto;padding-right:4px}
+aside input[type=search]{width:100%;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 10px;margin-bottom:10px}
+aside h4{margin:14px 0 4px;font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+aside .act{display:block;width:100%;text-align:left;border:0;background:none;padding:6px 10px;border-radius:6px;cursor:pointer;line-height:1.3}
+aside .act:hover{background:var(--accent-soft)}
+aside .act[aria-current=true]{background:var(--accent);color:var(--accent-fg)}
+.msel{display:none;width:100%;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:10px;margin-bottom:14px}
+.head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;margin-bottom:12px}
+.head h2{font-size:25px}
+.tag{font-size:11px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);border-radius:4px;padding:1px 7px;color:var(--muted);font-weight:500}
+.sub{display:flex;gap:2px;overflow-x:auto;border-bottom:1px solid var(--line);margin-bottom:18px}
+.sub button{border-radius:6px 6px 0 0}
+.cot{display:grid;grid-template-columns:minmax(0,330px) minmax(0,1fr);gap:20px;align-items:start}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px}
+.fld{margin-bottom:14px}
+.fld>label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.fld input[type=text],.fld input[type=number],.fld select{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-family:var(--mono);font-size:14px}
+.fld select{font-family:var(--sans)}
+.money{position:relative}.money span{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-family:var(--mono)}
+.money input{padding-left:26px!important;text-align:right}
+.hint{font-size:12px;color:var(--muted);margin-top:3px}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13.5px}
+fieldset{border:0;border-top:1px solid var(--line);margin:16px 0 0;padding:14px 0 0}
+legend{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);padding:0 8px 0 0;font-weight:600}
+.ledger h3{font-size:12px;letter-spacing:.09em;text-transform:uppercase;font-family:var(--sans);color:var(--muted);margin:18px 0 4px;font-weight:600}
+.ledger h3:first-child{margin-top:0}
+.row{display:flex;gap:14px;align-items:baseline;padding:7px 0;border-bottom:1px dotted var(--line)}
+.row .lab{flex:1;min-width:0}.row .lab small{display:block;color:var(--muted);font-size:12px}
+.row .amt{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
+.row.sum{border-bottom:1px solid var(--fg);font-weight:600}
+.chip{display:inline-block;font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;border-radius:4px;padding:0 5px;margin-left:6px;font-weight:600;vertical-align:1px}
+.chip.ok{background:var(--ok-soft);color:var(--ok)}.chip.ref{background:var(--warn-soft);color:var(--warn)}.chip.pend{background:var(--pend-soft);color:var(--pend)}
+.total{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 16px;margin-top:18px;padding:14px 16px;background:var(--accent);color:var(--accent-fg);border-radius:8px}
+.total b{font-family:var(--serif);font-size:32px;font-weight:600;font-variant-numeric:tabular-nums}
+.note{margin-top:12px;padding:9px 12px;border-radius:6px;font-size:13px;background:var(--warn-soft);color:var(--warn)}
+.note.bad{background:var(--pend-soft);color:var(--pend)}
+.split{margin-top:10px;font-size:13.5px;color:var(--muted)}
+.btn{background:var(--accent);color:var(--accent-fg);border:0;border-radius:6px;padding:8px 14px;cursor:pointer;font-weight:500;margin-top:14px}
+.blk{margin-bottom:22px;max-width:75ch}
+.blk h3{font-size:18px;margin-bottom:8px}
+.lst{margin:0;padding-left:22px}.lst li{margin-bottom:6px}
+ul.lst{list-style:square}ul.lst li::marker{color:var(--accent)}
+.empty{color:var(--muted)}
+.scroll{overflow-x:auto;margin-bottom:22px}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td.n{font-family:var(--mono);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:20px}
+.cols label{display:flex;gap:8px;align-items:flex-start;padding:4px 0}
+.mac{max-width:90ch}.mh{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;margin-bottom:8px}.mh h3{margin:0}
+.btn.sm{margin-top:0;padding:5px 12px;font-size:13px}
+.mtxt{white-space:pre-wrap;overflow-wrap:anywhere;margin:0;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:16px 18px;font-family:var(--serif);font-size:15.5px;line-height:1.65}
+footer{margin-top:34px;color:var(--muted);font-size:12.5px;max-width:80ch}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}aside{display:none}.msel{display:block}}
+@media (max-width:1080px){.cot{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>Cotizador Notarial</h1><p>Costa Rica · basado en el Manual del Notario del 15 de octubre de 2026</p></div>
+    <div class="views" role="tablist"><button role="tab" data-view="cot" aria-selected="true">Actos</button><button role="tab" data-view="ref" aria-selected="false">Tablas, plazos y listas</button></div>
+  </div>
+  <div class="bar" id="bar">
+    <label>Arancel
+      <select id="s_adj"><option value="adj">Vigente reportado (+10 %)</option><option value="base">Base 2015</option></select></label>
+    <label><input type="checkbox" id="s_iva" checked> IVA 13 % sobre honorarios</label>
+    <span class="conv"><label>Convertir US$ <input type="text" id="c_usd" inputmode="decimal" placeholder="0"> × TC ₡ <input type="text" id="c_tc" inputmode="decimal" placeholder="tipo de cambio"> = <span class="out" id="c_out">₡0</span></label></span>
+  </div>
+  <div id="app"></div>
+  <footer>Herramienta de apoyo hecha a partir del manual adjunto. No sustituye el criterio del notario ni la normativa oficial. Los honorarios del arancel vigente salen de una fuente secundaria (abril de 2026) y los topes de vivienda del timbre Agrario no están verificados: cada línea indica su grado de certeza. Confirme montos y tablas el día de la firma en abogados.or.cr, dnn.go.cr y rnpdigital.com. Los montos iniciales de cada acto son ejemplos.</footer>
+</div>
+<script>
+/*ENGINE_START*/
+const fmt = n => {
+  if (n == null) return "—";
+  const neg = n < 0; n = Math.abs(n);
+  const s = Number.isInteger(n) ? String(n) : n.toFixed(2);
+  let [a, b] = s.split(".");
+  a = a.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  return (neg ? "-" : "") + "₡" + a + (b ? "," + b : "");
+};
+
+function makeH(S) {
+  const k = S.adj ? 1.1 : 1;
+  const r2 = x => Math.round(x * 100) / 100;
+  const fix = x => r2(x * k);
+  const tarifa = b => {
+    const A = 11e6 * k, B = 16.5e6 * k, C = 33e6 * k;
+    let t = Math.min(b, A) * 0.02;
+    if (b > A) t += (Math.min(b, B) - A) * 0.015;
+    if (b > B) t += (Math.min(b, C) - B) * 0.0125;
+    if (b > C) t += (b - C) * 0.01;
+    return t;
+  };
+  const COL = [[250000, 0], [1e6, 1000], [5e6, 2000], [25e6, 5000], [50e6, 10000], [100e6, 15000], [500e6, 25000], [Infinity, 50000]];
+  const colegio = c => { for (const [m, v] of COL) if (c <= m) return fix(v); return fix(50000); };
+  const arch = c => (c > 0 && c < 100000 ? 10 : 20);
+  const T = (label, amount, basis, st = "ok") => ({ label, amount, basis, st });
+  const tar = (label, b, f = 1, min = 55000, ref = "art. 74") => {
+    const raw = f * tarifa(b), m = fix(min);
+    return { label, amount: Math.round(Math.max(raw, m)), basis: "Tarifa General" + (f !== 1 ? " × " + Math.round(f * 100) + " %" : "") + " sobre " + fmt(b) + " · mínimo " + fmt(m), ref, min: raw < m };
+  };
+  const fixH = (label, base, ref, qty = 1) => ({ label, amount: Math.round(fix(base) * qty), basis: "Mínimo del Arancel " + fmt(fix(base)) + (qty > 1 ? " × " + qty : ""), ref });
+  const colT = (c, note) => T("Timbre del Colegio de Abogados", c > 0 ? colegio(c) : fix(250),
+    c > 0 ? "Tabla por cuantía" + (note ? " · " + note : "") : "Acto de cuantía inestimable", S.adj ? "ref" : "ok");
+  const arcT = c => T("Timbre de Archivos Nacionales", arch(c), c > 0 ? "₡10 si la cuantía es menor a ₡100.000; ₡20 si es mayor" : "₡20 · cuantía inestimable");
+  const regT = c => T("Derechos de registro (inmuebles)", Math.round(c * 0.005), "₡5 por millar · Ley 4564");
+  const munT = c => T("Timbre municipal (Ley 7794)", Math.round(c * 0.002), "₡2 por millar");
+  const trT = c => T("Impuesto de traspaso (Ley 6999)", Math.round(c * 0.015), "1,5 % de la base imponible");
+  const agrT = (c, rate) => T("Timbre Agrario (Ley 5792)", Math.round(c * rate / 1000), "₡" + String(rate).replace(".", ",") + " por millar", rate === 1.5 ? "ok" : "ref");
+  const pend = (label, basis) => T(label, null, basis, "pend");
+  const FIS = T("Timbre fiscal del testimonio", 250, "₡125 expedición + ₡125 autenticación (§5.2)", "ref");
+  const tras = (b, agr, o = {}) => {
+    const hip = o.hip || 0, rate = parseFloat(agr) || 1.5, exo = !!o.exo;
+    const L = [colT(b + hip, hip ? "suma de cuantías · art. 109 j" : "mayor entre valor real y fiscal")];
+    L.push(exo ? T("Derechos de registro (inmuebles)", 0, "Exento · fideicomiso de garantía SUGEF", "ref")
+      : hip ? T("Derechos de registro (inmuebles)", Math.round((b + hip) * 0.005), "₡5 por millar sobre traspaso e hipoteca", "ref") : regT(b));
+    L.push(exo ? T("Impuesto de traspaso (Ley 6999)", 0, "Exento · art. 662 Código de Comercio", "ref") : trT(b));
+    L.push(munT(b), agrT(b, rate), arcT(b + hip), FIS);
+    return L;
+  };
+  return { k, fix, tarifa, colegio, arch, T, tar, fixH, colT, arcT, regT, munT, trT, agrT, pend, FIS, tras };
+}
+
+function quote(act, v, S) {
+  const h = makeH(S), res = act.calc(v, h);
+  const hon = res.hon.slice();
+  let honSum = hon.reduce((a, l) => a + l.amount, 0);
+  if (S.rec && honSum > 0) {
+    const rec = Math.round(honSum * 0.5);
+    hon.push({ label: "Recargo por acto complejo (50 %)", amount: rec, basis: "Con convenio escrito", ref: "art. 71" });
+    honSum += rec;
+  }
+  const pact = S.pactado > 0 ? { value: S.pactado, low: S.pactado < honSum, high: S.pactado > honSum * 1.5, arancel: honSum } : null;
+  const honBase = pact ? S.pactado : honSum;
+  const iva = S.iva ? Math.round(honBase * 0.13) : 0;
+  const tim = res.tim || [];
+  const timSum = tim.reduce((a, l) => a + (l.amount || 0), 0);
+  const otros = S.otros || 0;
+  const gastos = timSum + otros;
+  return { res, hon, honSum, pact, honBase, iva, tim, timSum, otros, gastos, total: honBase + iva + gastos, pend: tim.filter(l => l.st === "pend").length };
+}
+
+const M = (k, label, d, hint) => ({ k, label, type: "money", d, hint });
+const N = (k, label, d, min = 1) => ({ k, label, type: "int", d, min });
+const SEL = (k, label, d, opts, hint) => ({ k, label, type: "select", d, opts, hint });
+const CHK = (k, label, d, hint) => ({ k, label, type: "check", d, hint });
+const AG = SEL("agr", "Destino del inmueble (timbre Agrario)", "1.5",
+  [["1.5", "General · ₡1,50 por millar"], ["1.25", "Vivienda no de interés social · ₡1,25 hasta el tope"], ["1", "Vivienda de interés social · ₡1"]],
+  "Los topes de valor para vivienda cambian por resolución del INDER. Confirme en TASABAN.");
+
+const VER_INM = ["Documento de identidad vigente de todos los comparecientes", "Estudio registral reciente: gravámenes, anotaciones y limitaciones", "Plano catastrado vigente y coincidente con el Registro", "Valor fiscal y municipalidad al día (bienes inmuebles y servicios)", "Certificación de personería si interviene una sociedad", "Estado civil jurado y consentimiento del cónyuge cuando aplique", "Origen de fondos (Ley 8204) y declaración del art. 15 ter de la Ley 7786: es obligación de las partes, el Registro no la califica"];
+const ERR = ["Omitir hora y fecha del otorgamiento: nulidad absoluta (art. 126 h)", "Escribir cifras o abreviaturas en el texto (art. 74)", "Corregir con tachaduras o enmiendas: use notas antes de las firmas o escritura adicional (art. 75)", "No poner nota marginal de referencia en la escritura modificada (art. 97)", "Autorizar con interés prohibido (art. 7 c) o con testigos impedidos (art. 42)"];
+const ADV_TRASP = ["Pago del impuesto de traspaso, derechos y timbres, y obligación de inscribir", "Gravámenes legales por impuestos o contribuciones que afecten el bien (art. 34 b)", "Prelación registral por orden de presentación", "La escritura no es oponible a terceros mientras no esté inscrita", "El notario no responde por vicios derivados de datos falsos de las partes"];
+
+const ACTS = [];
+const add = a => ACTS.push(a);
+
+/* ---------- INMUEBLES ---------- */
+add({ id: "compraventa", g: "inm", name: "Compraventa de inmueble", sec: "§8.1 · §4.1 · §37.2", payer: "iguales",
+  inputs: [M("precio", "Precio del contrato", 60000000), M("fiscal", "Valor fiscal", 55000000, "Se toma el mayor entre precio y valor fiscal."), AG],
+  calc: (v, h) => { const b = Math.max(v.precio, v.fiscal); return { base: ["Base imponible (mayor entre precio y valor fiscal)", b], hon: [h.tar("Honorarios · Tarifa General", b)], tim: h.tras(b, v.agr), notes: ["Si el precio está en dólares, convierta con el tipo de cambio de venta de referencia del BCCR a la fecha del otorgamiento."] }; },
+  info: { req: VER_INM.concat(["Si comparece una sociedad: personería vigente y facultades suficientes", "Si hay varios compradores: proporción en porcentaje, fracción o m² (máximo dos decimales)"]),
+    cla: ["Descripción registral (art. 88): provincia, matrícula, naturaleza, medida, situación, linderos y plano", "Venta y traspaso libre de gravámenes salvo los transcritos", "Precio y forma de pago (precio por separado de cada inmueble si son varios)", "Estimación fiscal y valor fiscal vigente", "Entrega y estado de impuestos, servicios municipales y cuotas de condominio", "Saneamiento: evicción y vicios ocultos", "Declaración jurada de estado civil y bienes, o consentimiento del cónyuge", "Origen de fondos y cumplimiento de Ley 8204", "Gastos por partes iguales salvo pacto", "Aceptación del comprador y autorización para inscribir"],
+    adv: ADV_TRASP, reg: ["Registro Inmobiliario. Base imponible: mayor entre precio y valor fiscal", "En derechos proindivisos el pago es proporcional al derecho transmitido", "Honorarios: Tarifa General con mínimo del Arancel. Gastos por partes iguales (art. 68)"] } });
+
+add({ id: "compraventa-hip", g: "inm", name: "Compraventa con hipoteca a favor del vendedor", sec: "§32.1", payer: "iguales",
+  inputs: [M("precio", "Precio del contrato", 60000000), M("fiscal", "Valor fiscal", 55000000), M("saldo", "Saldo de precio garantizado con hipoteca", 20000000), AG],
+  calc: (v, h) => { const b = Math.max(v.precio, v.fiscal); return { base: ["Base imponible de la compraventa", b], hon: [h.tar("Honorarios · compraventa", b), h.tar("Honorarios · hipoteca del vendedor (50 %)", v.saldo, 0.5, 55000, "art. 75 h")], tim: h.tras(b, v.agr, { hip: v.saldo }), notes: ["La hipoteca por el precio o parte del precio no paga timbre Agrario (art. 14 inc. d, Ley 5792).", "Los gastos de la hipoteca corren por el deudor (art. 68): ajuste el reparto con las partes."] }; },
+  info: { req: VER_INM.concat(["Condiciones del saldo: cuotas, tasa, plazo y vencimiento anticipado"]),
+    cla: ["Todas las cláusulas de la compraventa", "Cláusula de pago: parte al contado y saldo que el comprador reconoce deber", "Hipoteca de primer grado a favor del vendedor sobre el mismo inmueble", "Estimación de la hipoteca y base de remate", "Intereses corrientes y moratorios, vencimiento anticipado"],
+    adv: ADV_TRASP.concat(["Consecuencias del incumplimiento, ejecución y vencimiento anticipado", "Obligación de mantener seguros y pagar impuestos"]),
+    reg: ["Un solo instrumento con dos actos suma las cuantías para el timbre del Colegio (art. 109 j)", "Hipoteca a favor del vendedor paga 50 % de la Tarifa General (art. 75 h)"] } });
+
+add({ id: "donacion", g: "inm", name: "Donación de inmueble", sec: "§9.1 · §37.4", payer: "iguales",
+  inputs: [M("precio", "Valor estimado de la donación", 40000000), M("fiscal", "Valor fiscal", 40000000), AG],
+  calc: (v, h) => { const b = Math.max(v.precio, v.fiscal); return { base: ["Base imponible (mayor entre valor estimado y fiscal)", b], hon: [h.tar("Honorarios · Tarifa General", b)], tim: h.tras(b, v.agr), notes: ["Verifique el impuesto aplicable al acto y las exoneraciones. El cálculo asume los mismos tributos de una compraventa (Guía de Calificación §37.1)."] }; },
+  info: { req: VER_INM.concat(["Aceptación expresa del donatario", "Verificar reserva de usufructo y legítimas si hay herederos forzosos", "Donatario menor: representación legal y autorización judicial cuando corresponda", "Representación por poder especialísimo (art. 1408 Código Civil); las sociedades autorizan en asamblea extraordinaria"]),
+    cla: ["Antecedentes y descripción del inmueble", "Donación pura, simple e irrevocable (nuda propiedad si hay usufructo)", "Reserva de usufructo vitalicio, si se pacta", "Estimación: mayor entre valor real y fiscal", "Declaraciones del donante: subsistencia, legítimas, estado civil", "Aceptación del donatario", "Cumplimiento de Ley 8204", "Gastos"],
+    adv: ["Valor y trascendencia de las renuncias (art. 34 b)", "Efecto sobre legítimas de herederos forzosos"].concat(ADV_TRASP.slice(0, 3)),
+    reg: ["Si donante y donatario comparecen juntos no se exige aceptación aparte. Si el donatario no comparece, tiene un año para aceptar y debe hacerlo en vida del donante", "En reservas gratuitas de uso, usufructo o habitación no es indispensable la aceptación del beneficiario (art. 98)", "Estimación por separado por inmueble"] } });
+
+add({ id: "permuta", g: "inm", name: "Permuta de inmuebles", sec: "§23.3 · §37.4", payer: "iguales",
+  inputs: [M("v1", "Valor del primer inmueble", 30000000), M("f1", "Valor fiscal del primero", 28000000), M("v2", "Valor del segundo inmueble", 32000000), M("f2", "Valor fiscal del segundo", 30000000), AG],
+  calc: (v, h) => { const b1 = Math.max(v.v1, v.f1), b2 = Math.max(v.v2, v.f2), b = b1 + b2; return { base: ["Suma de bases imponibles", b], hon: [h.tar("Honorarios · Tarifa General sobre ambos valores", b)], tim: h.tras(b, v.agr), notes: ["Criterio asumido: tributos sobre la suma de ambos inmuebles. Verifique cuántos traspasos se gravan y si la Tarifa General se calcula sobre cada valor por separado."] }; },
+  info: { req: VER_INM, cla: ["Cada permutante es dueño de su finca (descripción completa, art. 88)", "Permutan estimando cada una en su valor", "Diferencia de valor y su pago", "Saneamiento por evicción y vicios ocultos de ambas", "Gastos por partes iguales"], adv: ADV_TRASP, reg: ["Valor por separado de cada inmueble y proporciones cuando hay varios adquirentes"] } });
+
+add({ id: "dacion", g: "inm", name: "Dación en pago", sec: "§23.4 · §37.4", payer: "iguales",
+  inputs: [M("precio", "Valor en que se estima el bien", 50000000), M("fiscal", "Valor fiscal", 48000000), AG],
+  calc: (v, h) => { const b = Math.max(v.precio, v.fiscal); return { base: ["Base imponible", b], hon: [h.tar("Honorarios · Tarifa General", b)], tim: h.tras(b, v.agr), notes: ["Es un traspaso: tributos sobre el mayor entre valor real y fiscal."] }; },
+  info: { req: VER_INM.concat(["Comparecen el titular registral y el acreedor", "Si hay hipoteca inscrita, cancelarla con rogación y pago de timbres"]), cla: ["Reconocimiento de la deuda (origen y monto)", "Dación del inmueble y aceptación del acreedor", "Efectos: extinción hasta el valor del bien; tratamiento del excedente o faltante", "Cancelación de garantías conexas"], adv: ADV_TRASP, reg: ["La obligación previa no tiene que estar hipotecada"] } });
+
+add({ id: "hipoteca", g: "inm", name: "Hipoteca de primer grado", sec: "§8.2 · §4.2", payer: "deudor",
+  inputs: [M("monto", "Monto garantizado", 40000000)],
+  calc: (v, h) => ({ base: ["Monto garantizado", v.monto], hon: [h.tar("Honorarios · Tarifa General", v.monto)], tim: [h.colT(v.monto, "sobre el monto garantizado"), { ...h.regT(v.monto), st: "ref" }, { ...h.agrT(v.monto, 1.5), st: "ref", basis: "₡1,50 por millar · confirmar en la Guía" }, h.arcT(v.monto), h.FIS], notes: ["No corresponde impuesto de traspaso.", "Todos los costos corren por el deudor (art. 68)."] }),
+  info: { req: ["Estudio registral", "Monto, plazo, tasa e intereses", "Aceptación del acreedor (no es necesaria en la constitución de hipotecas comunes, art. 100)", "Personería y acuerdo si es sociedad", "Consentimiento del cónyuge cuando aplique"],
+    cla: ["Reconocimiento de deuda con monto en letras", "Plazo y forma de pago", "Intereses corrientes y moratorios", "Vencimiento anticipado", "Garantía hipotecaria: descripción del inmueble (art. 88) y grado", "Estimación y base de remate", "Obligaciones del deudor: seguros, impuestos, conservación", "Otras garantías: fiador o pagaré", "Gastos a cargo del deudor", "Domicilio para notificaciones"],
+    adv: ["Consecuencias del incumplimiento, de la ejecución y del vencimiento anticipado", "Obligación de mantener seguros y pagar impuestos"], reg: ["Registro Inmobiliario", "Hipotecas vencidas por más de diez años sin gestión de cobro ni reconocimiento no surten efectos frente a terceros"] } });
+
+add({ id: "cancel-hip", g: "inm", name: "Cancelación de hipoteca", sec: "§8.2 · §16.5", payer: "deudor",
+  inputs: [M("monto", "Monto de la hipoteca", 40000000)],
+  calc: (v, h) => ({ base: ["Monto de la hipoteca", v.monto], hon: [h.tar("Honorarios · 50 % de la Tarifa General", v.monto, 0.5, 55000, "art. 75")], tim: [h.colT(v.monto), h.pend("Derechos de registro de cancelación", "Confirme el monto vigente en el Registro Nacional"), h.arcT(v.monto), h.FIS], notes: ["Costos a cargo del deudor."] }),
+  info: { req: ["Estudio registral y datos de la escritura de la hipoteca (tomo, folio, citas)", "Acreedor con personería vigente si es entidad"], cla: ["Declaración de pago total de la obligación garantizada", "Cancelación total de la hipoteca y autorización al Registro"], adv: ["En hipotecas comunes no se requiere la intervención del deudor (art. 100)"], reg: ["Las cancelaciones hipotecarias están exceptuadas del plano catastrado (Ley 6545, art. 30)"] } });
+
+add({ id: "mod-hip", g: "inm", name: "Modificación de hipoteca", sec: "§32.6", payer: "deudor",
+  inputs: [SEL("tipo", "Tipo de modificación", "sin", [["sin", "Tasa, forma de pago u otras sin aumentar capital (50 %)"], ["plazo", "Ampliación de plazo (tarifa completa)"]]), M("monto", "Monto garantizado", 40000000)],
+  calc: (v, h) => ({ base: ["Monto garantizado", v.monto], hon: [v.tipo === "plazo" ? h.tar("Honorarios · Tarifa General", v.monto) : h.tar("Honorarios · 50 % de la Tarifa General", v.monto, 0.5, 55000, "art. 75 j")], tim: [h.colT(v.monto), h.pend("Derechos de registro", "Si hay ampliación de capital, confirme el cálculo en el Registro"), h.arcT(v.monto), h.FIS], notes: ["Costos a cargo del deudor."] }),
+  info: { req: ["Escritura original de la hipoteca", "Acuerdo de acreedor y deudor"], cla: ["Referencia a la escritura original", "Cláusulas modificadas y su nuevo texto", "Ampliación de capital: estimación y garantía por esa cuantía", "Se mantienen las demás cláusulas"], adv: ["Gastos a cargo del deudor", "Si cambia el deudor es novación: se requiere el consentimiento del acreedor (§32.5)"], reg: ["Nota marginal de referencia en la escritura modificada (art. 97)"] } });
+
+add({ id: "segregacion", g: "inm", name: "Segregación en cabeza propia", sec: "§11.7", payer: "unico",
+  inputs: [M("valor", "Valor estimado del lote", 15000000), N("fincas", "Fincas resultantes", 1), AG],
+  calc: (v, h) => { const n = Math.max(1, v.fincas), raw = 0.25 * h.tarifa(v.valor), mn = h.fix(55000) * n; return { base: ["Valor estimado", v.valor], hon: [{ label: "Honorarios · 25 % de la Tarifa General", amount: Math.round(Math.max(raw, mn)), basis: "25 % de la tarifa · mínimo " + fmt(h.fix(55000)) + " por finca", ref: "art. 76", min: raw < mn }], tim: [h.colT(v.valor), h.regT(v.valor), { ...h.agrT(v.valor, parseFloat(v.agr)), st: "ref" }, h.arcT(v.valor), h.FIS] }; },
+  info: { req: ["Plano catastrado del lote segregado y del resto", "Visado municipal que acredite el cumplimiento urbanístico", "Certificación de uso del suelo", "Constancias de INVU, SETENA, Aguas u otras instituciones si procede", "Verificar requisitos específicos del cantón"], cla: ["Finca madre con sus datos registrales", "Características del lote: naturaleza, situación, medida, linderos y plano", "Valor estimado", "Medida del resto de la finca madre", "Autorización para inscribir y abrir la nueva matrícula"], adv: ["Sin plano catastrado inscrito el Registro suspende la inscripción"], reg: ["Honorarios: 25 % de la tarifa con mínimo por finca (art. 76)"] } });
+
+add({ id: "rectificacion", g: "inm", name: "Rectificación de cabida", sec: "§23.10 · §21.2", payer: "unico",
+  inputs: [M("valor", "Valor estimado de la finca", 20000000), N("fincas", "Fincas", 1), AG],
+  calc: (v, h) => { const n = Math.max(1, v.fincas), raw = 0.25 * h.tarifa(v.valor), mn = h.fix(55000) * n; return { base: ["Valor estimado", v.valor], hon: [{ label: "Honorarios · rectificación (25 % de la tarifa)", amount: Math.round(Math.max(raw, mn)), basis: "25 % de la tarifa · mínimo " + fmt(h.fix(55000)) + " por finca", ref: "art. 76", min: raw < mn }], tim: [h.colT(v.valor), h.regT(v.valor), { ...h.agrT(v.valor, parseFloat(v.agr)), st: "ref", basis: "Se estima el aumento para el timbre Agrario" }, h.arcT(v.valor), h.FIS] }; },
+  info: { req: ["Finca inscrita antes del 23 de octubre de 1930 o segregación de una así inscrita", "Plano catastrado inscrito, levantado y firmado por profesional competente"], cla: ["Cabida inscrita y cabida real según el plano (número y fecha de inscripción)", "Declaración de rectificar la cabida", "Fe de que la nueva medida es la del plano y de que el aumento no excede los topes"], adv: ["La rectificación no perjudica a terceros durante los tres años posteriores a su inscripción", "Topes de aumento: hasta 5.000 m², lo que indique el plano; más de 5.000 m² y menos de 5 ha, 50 %; más de 5 y menos de 30 ha, 25 %; más de 30 ha, 10 %", "Para disminuir: manifestación expresa del propietario y plano catastrado"], reg: ["Ley 139, art. 13 reformado (art. 175 del Código Notarial)"] } });
+
+add({ id: "servidumbre", g: "inm", name: "Constitución de servidumbre", sec: "§11.8", payer: "iguales",
+  inputs: [M("valor", "Valor estimado (déjelo en 0 si es inestimable)", 0)],
+  calc: (v, h) => ({ base: v.valor > 0 ? ["Valor estimado", v.valor] : null, hon: [h.fixH("Honorarios · servidumbre", 55000, "art. 77")], tim: [h.colT(v.valor), v.valor > 0 ? h.regT(v.valor) : h.pend("Derechos de registro", "Acto inestimable: confirme el arancel del Registro"), h.arcT(v.valor), h.FIS] }),
+  info: { req: ["Plano catastrado, visado municipal e informes de uso de suelo cuando correspondan", "Consentimiento de colindantes"], cla: ["Fundo sirviente y fundo dominante con sus matrículas", "Tipo: paso, acueducto, cañería, líneas eléctricas u otras", "Ancho, longitud y área según plano", "Gratuita u onerosa; perpetua o a plazo", "Derechos de ejercicio y mantenimiento", "Estimación"], adv: ["Verifique el consentimiento de colindantes"], reg: ["Registro Inmobiliario"] } });
+
+add({ id: "condominio", g: "inm", name: "Afectación a condominio", sec: "§11.6 · §4.14", payer: "unico",
+  inputs: [M("valor", "Valor de la finca madre", 300000000), N("unid", "Fincas filiales y zonas comunes", 10), CHK("regl", "Incluye protocolización del reglamento", true), AG],
+  calc: (v, h) => { const n = Math.max(1, v.unid), raw = 1.5 * h.tarifa(v.valor), mn = h.fix(55000) * n; const hon = [{ label: "Honorarios · afectación (Tarifa General + 50 %)", amount: Math.round(Math.max(raw, mn)), basis: "Tarifa General × 150 % · mínimo " + fmt(h.fix(55000)) + " por filial o zona", ref: "art. 80", min: raw < mn }]; if (v.regl) hon.push(h.fixH("Honorarios · reglamento de condominio", 110000, "art. 80")); return { base: ["Valor de la finca madre", v.valor], hon, tim: [h.colT(v.valor, "sobre la finca madre"), h.pend("Derechos de registro por cada finca filial", "Según el arancel del Registro"), { ...h.agrT(v.valor, parseFloat(v.agr)), st: "ref" }, h.arcT(v.valor), h.FIS] }; },
+  info: { req: ["Planos constructivos y catastrados aprobados", "Permisos municipales y de construcción; uso de suelo conforme", "Reglamento de condominio", "Certificación de que el inmueble está libre de gravámenes o consentimiento de los acreedores"], cla: ["Finca madre y su descripción", "Afectación al régimen con su denominación y modalidad", "Fincas filiales con área privativa y porcentaje de participación", "Zonas comunes y de uso exclusivo", "Reglamento protocolizado y administración", "Autorización para inscribir y abrir matrículas filiales"], adv: ["Revise el capítulo de condominio de la Guía de Calificación Registral antes de cada trámite"], reg: ["Ley 7933"] } });
+
+add({ id: "arrendamiento", g: "inm", name: "Arrendamiento en escritura", sec: "§23.2", payer: "iguales",
+  inputs: [M("renta", "Renta mensual", 500000), N("meses", "Plazo en meses", 36)],
+  calc: (v, h) => { const c = v.renta * v.meses; return { base: ["Cuantía (suma de rentas del plazo)", c], hon: [h.tar("Honorarios · Tarifa General sobre un año de renta", v.renta * 12, 1, 55000, "art. 78")], tim: [h.colT(c), h.arcT(c), h.FIS] }; },
+  info: { req: ["Datos del inmueble y de las partes", "Personería si interviene una sociedad"], cla: ["Objeto y uso", "Plazo y prórroga", "Renta, forma de pago y revalorización anual", "Depósito", "Obligaciones: conservación, servicios, mejoras", "Prohibición de subarrendar y ceder sin autorización", "Terminación y entrega", "Estimación del contrato"], adv: ["Verifique las reglas imperativas de la ley de arrendamientos urbanos y suburbanos y el régimen de locales comerciales"], reg: [] } });
+
+add({ id: "opcion", g: "inm", name: "Opción de compraventa", sec: "§23.1", payer: "unico",
+  inputs: [M("precio", "Precio pactado", 60000000)],
+  calc: (v, h) => ({ base: ["Precio pactado", v.precio], hon: [h.tar("Honorarios · 50 % de la Tarifa General", v.precio, 0.5, 55000, "art. 75 m")], tim: [h.colT(v.precio), h.arcT(v.precio), h.FIS] }),
+  info: { req: ["Estudio registral del inmueble"], cla: ["Opción de compra irrevocable, precio y vigencia", "Prima y si se imputa al precio", "Forma de ejercicio y plazo para firmar la escritura", "El concedente no grava, enajena ni arrienda durante la vigencia", "Consecuencias del incumplimiento"], adv: ["Verifique el efecto registral y la forma de inscripción"], reg: [] } });
+
+/* ---------- VEHÍCULOS ---------- */
+add({ id: "veh-traspaso", g: "veh", name: "Traspaso de vehículo en escritura", sec: "§9.2 · §4.4", payer: "iguales",
+  inputs: [M("precio", "Precio de venta", 8000000), M("fiscal", "Valor fiscal (Hacienda)", 8500000)],
+  calc: (v, h) => { const b = Math.max(v.precio, v.fiscal); return { base: ["Base imponible (mayor entre precio y valor fiscal)", b], hon: [h.tar("Honorarios · Tarifa General", b, 1, 55000, "art. 82")], tim: [h.colT(b), h.T("Derechos de inscripción del traspaso", Math.max(2000, Math.round(b * 0.005)), "₡5 por millar · mínimo ₡2.000"), h.T("Timbre Agrario (vehículos)", Math.round(b * 3 / 1000), "₡3 por millar"), h.T("Parques Nacionales", 500, "Monto fijo"), h.T("Impuesto de traspaso de vehículos", Math.round(b * 0.025), "2,5 % de la base imponible"), h.arcT(b), h.FIS], notes: ["Alternativa: documento privado con autenticación de firmas (use el acto de autenticación)."] }; },
+  info: { req: ["Certificación registral", "Cédulas de las partes", "Revisión técnica y marchamo al día cuando se exija", "Valor fiscal de Hacienda", "Gravámenes y multas", "Medios de pago bancarizados para prevención de legitimación"], cla: ["Descripción: placa, marca, estilo, año, color, VIN, motor, combustible, cilindrada", "Venta y traspaso libre de gravámenes", "Precio y medio de pago", "Estimación fiscal", "Entrega y saneamiento", "Responsabilidad posterior del comprador", "Gastos por partes iguales"], adv: ["Verifique las tarifas vigentes en la página de aranceles del Registro de Bienes Muebles"], reg: ["Registro de Bienes Muebles"] } });
+
+add({ id: "prenda", g: "veh", name: "Prenda en escritura", sec: "§4.3 · §21.4", payer: "deudor",
+  inputs: [M("monto", "Monto de la obligación", 10000000)],
+  calc: (v, h) => ({ base: ["Monto de la obligación", v.monto], hon: [h.tar("Honorarios · 50 % de la Tarifa General", v.monto, 0.5, 0, "art. 56")], tim: [h.colT(v.monto), h.pend("Derechos de inscripción en Bienes Muebles", "Consulte el arancel del Registro"), h.arcT(v.monto), h.FIS], notes: ["Costos a cargo del deudor."] }),
+  info: { req: ["Bien identificado: placa, VIN y motor", "Acreedor y deudor, monto y plazo"], cla: ["Datos del acreedor y del deudor", "Descripción exacta del bien", "Estimación para el remate", "Depositario y seguro", "Lugar de pago de capital e intereses y vencimiento"], adv: ["Las prendas sobre vehículos, buques y aeronaves deben constituirse en escritura pública (art. 176)", "El deudor conserva la posesión y asume las obligaciones de depositario"], reg: ["Sobre otros bienes muebles puede ser documento privado con firma del deudor autenticada"] } });
+
+add({ id: "cancel-prenda", g: "veh", name: "Cancelación de prenda", sec: "§23.6", payer: "deudor",
+  inputs: [M("monto", "Monto de la prenda", 10000000)],
+  calc: (v, h) => ({ base: ["Monto de la prenda", v.monto], hon: [h.tar("Honorarios · 50 % de la Tarifa General", v.monto, 0.5, 55000, "art. 75")], tim: [h.colT(v.monto), h.pend("Derechos de cancelación en Bienes Muebles", "Consulte el arancel del Registro"), h.arcT(v.monto), h.FIS], notes: ["Costos a cargo del deudor."] }),
+  info: { req: ["Datos de la prenda inscrita (placa, VIN, citas)"], cla: ["Declaración de pago íntegro", "Cancelación total y autorización registral"], adv: [], reg: [] } });
+
+/* ---------- SOCIEDADES ---------- */
+add({ id: "constitucion", g: "soc", name: "Constitución de S.A. o S.R.L.", sec: "§8.3 · §31.1", payer: "unico",
+  inputs: [M("capital", "Capital social", 500000), SEL("tipo", "Tipo de sociedad", "normal", [["normal", "Sociedad anónima o de responsabilidad limitada"], ["esp", "Ley especial, sucursal o apoderado de sociedad extranjera"]]), N("agente", "Años de agente residente (0 si no aplica)", 0, 0)],
+  calc: (v, h) => { const hon = [h.fixH("Honorarios · constitución", v.tipo === "esp" ? 330000 : 165000, v.tipo === "esp" ? "art. 84" : "art. 95 a")]; if (v.agente > 0) hon.push(h.fixH("Honorarios · agente residente", 110000, "art. 58", v.agente)); return { base: ["Capital social", v.capital], hon, tim: [h.colT(v.capital, "sobre el capital social"), h.pend("Derechos de inscripción", "Tabla del Registro de Personas Jurídicas"), h.arcT(v.capital), h.FIS], notes: ["Si aplica, incluya el aporte al Registro de Transparencia y Beneficiarios Finales."] }; },
+  info: { req: ["Reserva de nombre vigente", "Cédulas de los socios", "Capital social y su aporte (efectivo o bienes)", "Domicilio, plazo y objeto", "Órgano de administración y representación", "Agente residente si ningún administrador reside en el país", "Beneficiario final (Ley 9416)"], cla: ["Denominación y domicilio", "Objeto y plazo", "Capital, suscripción y pago", "Acciones o cuotas", "Administración y representación (art. 1253 Código Civil)", "Asambleas y fiscalización", "Ejercicio económico y reservas", "Disolución y liquidación", "Agente residente y nombramientos", "Beneficiarios finales y origen de fondos"], adv: ["Legalizar libros: actas de asamblea, junta directiva, registro de accionistas y contabilidad", "Reportar beneficiarios finales y cumplir obligaciones tributarias y registrales"], reg: ["Después de otorgar: inscribir en Personas Jurídicas y tramitar la cédula jurídica", "No procede otorgar con una sociedad no inscrita aunque la inscripción esté en trámite"] } });
+
+add({ id: "acta", g: "soc", name: "Protocolización de actas y reformas societarias", sec: "§11.10 · §31", payer: "unico",
+  inputs: [SEL("tipo", "Acto", "nomb", [["nomb", "Nombramientos, renuncias y reformas de estatutos", 82500], ["aum", "Aumento de capital", 82500], ["dis", "Disolución", 82500], ["fus", "Fusión o transformación", 165000]]), M("cuantia", "Cuantía (monto del aumento; 0 si es inestimable)", 0)],
+  calc: (v, h) => { const map = { nomb: ["Nombramientos y otras modificaciones", 82500, "art. 95 e"], aum: ["Aumento de capital", 82500, "art. 95 c"], dis: ["Disolución", 82500, "art. 95 d"], fus: ["Fusión o transformación", 165000, "art. 95 b"] }[v.tipo]; return { base: v.cuantia > 0 ? ["Cuantía", v.cuantia] : null, hon: [h.fixH("Honorarios · " + map[0], map[1], map[2])], tim: [h.colT(v.cuantia), h.pend("Derechos de registro", "Según el acto, en el Registro de Personas Jurídicas"), h.arcT(v.cuantia), h.FIS] }; },
+  info: { req: ["Libro de actas legalizado", "Convocatoria y quórum acreditados", "Firmas de presidente y secretario", "Certificación de personería vigente", "Sin inhabilidades de los nombrados"], cla: ["Protocolizo el acta número, asamblea, fecha, hora y lugar", "Folio y libro donde consta, con fecha de legalización", "Acuerdos tomados", "Fe de convocatoria y quórum"], adv: ["Fusión: proyecto, actas, publicación de avisos, plazo de oposición de acreedores, escritura e inscripción", "Reducción de capital: no autorice antes de cumplir avisos y plazos de oposición"], reg: ["Registro de Personas Jurídicas"] } });
+
+add({ id: "cuotas", g: "soc", name: "Traspaso de cuotas de S.R.L.", sec: "§11.9 · §4.8", payer: "iguales",
+  inputs: [M("precio", "Precio de las cuotas", 5000000)],
+  calc: (v, h) => ({ base: ["Precio", v.precio], hon: [h.fixH("Honorarios · revisión del traspaso", 220000, "art. 79"), h.tar("Honorarios · acto de traspaso (Tarifa General)", v.precio, 1, 55000, "confirmar criterio")], tim: [h.colT(v.precio), h.pend("Derechos de registro", "Cuotas: confirme el arancel del Registro"), h.arcT(v.precio), h.FIS] }),
+  info: { req: ["Libro de socios o registro de cuotas", "Consentimiento de los demás socios según el pacto", "Cédulas de cedente y cesionario"], cla: ["Datos de la sociedad y su capital", "Cuotas del cedente, libres de gravámenes", "Cesión y traspaso por el precio", "Consentimiento de socios (protocolizar el acta)", "Aceptación del cesionario"], adv: ["En sociedades anónimas las acciones nominativas se transmiten por endoso y registro, sin escritura salvo que el pacto la exija"], reg: [] } });
+
+add({ id: "fundacion", g: "soc", name: "Constitución de asociación o fundación", sec: "§23.8 · §31.9", payer: "unico",
+  inputs: [M("patrimonio", "Patrimonio inicial (0 si es inestimable)", 0)],
+  calc: (v, h) => ({ base: v.patrimonio > 0 ? ["Patrimonio inicial", v.patrimonio] : null, hon: [h.fixH("Honorarios · constitución", 165000, "art. 95")], tim: [h.colT(v.patrimonio), h.pend("Derechos de registro", "Según el Registro"), h.arcT(v.patrimonio), h.FIS] }),
+  info: { req: ["Verifique en la ley especial el mínimo de asociados o el patrimonio inicial", "Estatutos conforme a la ley"], cla: ["Comparecencia de los fundadores", "Estatutos: denominación, domicilio, fines no lucrativos, patrimonio, órganos, representación, reformas, disolución y destino de bienes", "Primera junta directiva", "Autorización para inscribir"], adv: ["Verifique requisitos de las autoridades de control"], reg: [] } });
+
+/* ---------- PODERES Y TESTAMENTOS ---------- */
+add({ id: "poder", g: "pod", name: "Poder en escritura pública", sec: "§8.4", payer: "unico",
+  inputs: [N("n", "Cantidad de poderes", 1)],
+  calc: (v, h) => { const n = Math.max(1, v.n); return { hon: [h.fixH("Honorarios · poder", 82500, "art. 96", n)], tim: [h.T("Timbre del Colegio de Abogados", h.fix(250) * n, "Acto inestimable por poder", h.k > 1 ? "ref" : "ok"), h.T("Timbre fiscal del testimonio y poderes", 250 + 125 * n, "₡250 del testimonio + ₡125 por poder", "ref"), h.arcT(0)] }; },
+  info: { req: ["Poderdante con capacidad y personería vigente", "Facultades expresas", "Plazo"], cla: ["Tipo: generalísimo sin límite de suma, general, especial o judicial", "Facultades otorgadas", "Plazo y sustitución", "Aceptación del apoderado"], adv: ["Alcance de las facultades, revocabilidad y efectos frente a terceros", "Poder judicial: transigir, desistir y recibir deben constar de forma expresa"], reg: ["Poder de sociedad: indique el artículo de los estatutos que lo autoriza", "Inscriba los poderes generalísimos y generales de sociedades"] } });
+
+add({ id: "testamento", g: "pod", name: "Testamento abierto", sec: "§9.4", payer: "unico",
+  inputs: [],
+  calc: (v, h) => ({ hon: [h.fixH("Honorarios · testamento", 110000, "art. 97")], tim: [h.colT(0), h.arcT(0), h.FIS] }),
+  info: { req: ["Capacidad testamentaria del otorgante", "Testigos instrumentales según el Código Civil", "Respeto de legítimas y alimentos", "Lectura íntegra"], cla: ["Declaraciones personales y familia", "Alimentos y legítimas", "Institución de herederos y sustitución", "Legados", "Albacea", "Revocatoria de testamentos anteriores"], adv: ["Reserva absoluta del contenido"], reg: ["Anotar en índices y depositar en el Archivo Notarial", "Registro de testamentos en el Archivo Notarial"] } });
+
+add({ id: "fideicomiso", g: "pod", name: "Fideicomiso", sec: "§9.3 · §37.5", payer: "unico",
+  inputs: [M("precio", "Valor del patrimonio fideicometido", 80000000), M("fiscal", "Valor fiscal del inmueble", 75000000), CHK("tras", "Incluye traspaso del inmueble en propiedad fiduciaria", true), CHK("gar", "Fideicomiso de garantía con entidad inscrita en SUGEF", false, "Exonera impuesto de traspaso y derechos de registro; el timbre del Colegio sí se paga."), AG],
+  calc: (v, h) => { const b = Math.max(v.precio, v.fiscal); const hon = [h.tar("Honorarios · constitución", v.precio, 1, 165000, "art. 98")]; let tim; if (v.tras) { hon.push(h.tar("Honorarios · traspaso de bienes", b, 1, 55000, "art. 98")); tim = h.tras(b, v.agr, { exo: v.gar }); } else tim = [h.colT(v.precio), h.pend("Derechos de registro", "Solo se inscribe el traspaso, no el contrato"), h.arcT(v.precio), h.FIS]; return { base: ["Base imponible", b], hon, tim }; },
+  info: { req: ["Fiduciario habilitado, fideicomitente y fideicomisario", "Patrimonio identificado, fin lícito y plazo"], cla: ["Constitución y fin", "Patrimonio fideicometido y plazo", "Facultades y obligaciones del fiduciario", "Derechos del fideicomisario", "Honorarios del fiduciario", "Causas de extinción", "Beneficiarios finales", "Autorización para inscribir"], adv: ["El fiduciario no puede ser fideicomisario", "Los bienes no pueden gravarse sin autorización del fideicomitente", "Administrar fideicomisos sin ser entidad supervisada exige inscripción en SUGEF y el notario debe dar fe de ella"], reg: ["Solo se inscriben los traspasos en propiedad fiduciaria, no el contrato", "Exención del art. 662 del Código de Comercio solo para fideicomisos de garantía con entidades inscritas en SUGEF"] } });
+
+/* ---------- FAMILIA ---------- */
+add({ id: "capitulaciones", g: "fam", name: "Capitulaciones matrimoniales", sec: "§11.1", payer: "unico",
+  inputs: [M("valor", "Valor de los bienes aportados (0 si no se estiman)", 0)],
+  calc: (v, h) => ({ base: v.valor > 0 ? ["Valor de los bienes", v.valor] : null, hon: [h.tar("Honorarios · Tarifa General", v.valor, 1, 110000, "art. 94")], tim: [h.colT(v.valor), h.pend("Derechos de registro", "Si se afectan inmuebles"), h.arcT(v.valor), h.FIS] }),
+  info: { req: ["Cédulas y estado civil de ambos", "Inventario de bienes aportados"], cla: ["Régimen económico", "Bienes aportados con valor y gravámenes", "Administración y disposición", "Bienes adquiridos durante el matrimonio", "Sostenimiento del hogar", "Inscripción"], adv: ["Verifique el régimen supletorio y las modalidades del Código de Familia vigente"], reg: ["Registro Civil o Registro Inmobiliario si se afectan bienes"] } });
+
+add({ id: "matrimonio", g: "fam", name: "Matrimonio civil ante notario", sec: "§11.2", payer: "unico",
+  inputs: [],
+  calc: (v, h) => ({ hon: [h.fixH("Honorarios · matrimonio", 110000, "art. 94")], tim: [h.colT(0), h.arcT(0), h.FIS] }),
+  info: { req: ["Cédulas y certificaciones recientes de nacimiento y estado civil", "Consentimiento de representantes y dispensa judicial si hay menores", "Declaración de inexistencia de impedimentos", "Testigos exigidos por el Código de Familia"], cla: ["Voluntad de contraer matrimonio", "Declaración del notario de la unión", "Régimen patrimonial", "Autorización para inscribir"], adv: ["Verifique el procedimiento con el Código de Familia y la guía de la DNN"], reg: ["Inscripción en el Registro Civil"] } });
+
+add({ id: "divorcio", g: "fam", name: "Divorcio o separación por mutuo acuerdo", sec: "§11.3", payer: "iguales",
+  inputs: [SEL("gan", "Gananciales", "no", [["no", "Sin gananciales"], ["si", "Con gananciales"]]), M("valor", "Valor de los bienes (si hay gananciales)", 0)],
+  calc: (v, h) => ({ base: v.valor > 0 ? ["Valor de los bienes", v.valor] : null, hon: [v.gan === "si" ? h.tar("Honorarios · 50 % de la Tarifa General", v.valor, 0.5, 165000, "art. 94") : h.fixH("Honorarios · convenio sin gananciales", 110000, "art. 94")], tim: [h.colT(v.valor), h.arcT(v.valor), h.FIS], notes: ["Verifique la vía vigente según el Código Procesal de Familia."] }),
+  info: { req: ["Certificación de matrimonio", "Datos de hijos menores", "Inventario de bienes si hay gananciales"], cla: ["Guarda, crianza y educación", "Régimen de comunicación y pensión alimentaria", "Pensión entre cónyuges", "Bienes y gananciales", "Deudas", "Autorización para presentar a homologación"], adv: ["El convenio se presenta para homologación judicial", "Lo pactado sobre menores puede ser revisado por el juez"], reg: ["Se inscribe en el Registro Civil tras la resolución"] } });
+
+add({ id: "patrimonio", g: "fam", name: "Afectación a patrimonio familiar", sec: "§11.4", payer: "unico",
+  inputs: [],
+  calc: (v, h) => ({ hon: [h.fixH("Honorarios · afectación", 55000, "art. 94")], tim: [h.colT(0), h.pend("Derechos de registro", "Según el arancel del Registro"), h.arcT(0), h.FIS] }),
+  info: { req: ["Propietario y beneficiarios", "Estudio registral"], cla: ["Descripción del inmueble", "Afectación a favor de cónyuge e hijos", "Declaración de que no lesiona derechos de terceros"], adv: ["Verifique el límite de valor y los requisitos de capacidad en el Código de Familia"], reg: [] } });
+
+add({ id: "reconocimiento", g: "fam", name: "Reconocimiento de hijo", sec: "§11.5", payer: "unico",
+  inputs: [],
+  calc: (v, h) => ({ hon: [h.fixH("Honorarios · reconocimiento", 55000, "art. 77")], tim: [h.colT(0), h.arcT(0), h.FIS] }),
+  info: { req: ["Datos del reconocido y citas de su inscripción", "Si es mayor de edad, su consentimiento"], cla: ["Declaración del reconocimiento", "Autorización para inscribir en el Registro Civil"], adv: [], reg: [] } });
+
+add({ id: "renuncia-gan", g: "fam", name: "Renuncia de gananciales", sec: "§32.8", payer: "unico",
+  inputs: [M("valor", "Valor del bien", 30000000)],
+  calc: (v, h) => ({ base: ["Valor del bien", v.valor], hon: [h.tar("Honorarios · 50 % de la Tarifa General", v.valor, 0.5, 55000, "art. 75 i")], tim: [h.colT(v.valor), h.arcT(v.valor), h.FIS] }),
+  info: { req: ["Datos del matrimonio y del bien"], cla: ["Renuncia expresa al derecho de ganancialidad, o reconocimiento de aporte", "Constancia de que el notario informó el valor y trascendencia"], adv: ["Informar el valor y trascendencia de la renuncia es obligatorio (art. 34 b)"], reg: [] } });
+
+/* ---------- AUTENTICACIONES, ACTAS Y TRÁMITES ---------- */
+add({ id: "autenticacion", g: "ext", name: "Autenticación de firmas", sec: "§5.1 · §9.5", payer: "unico",
+  inputs: [N("firmas", "Firmas a autenticar", 1), N("hojas", "Hojas del documento", 1), N("poderes", "Poderes especiales entre ellos", 0, 0)],
+  calc: (v, h) => { const n = Math.max(1, v.firmas), hj = Math.max(1, v.hojas), hoja = Math.max(12.5, 6.25 + 2.5 * (hj - 1)); const tim = [h.T("Timbre del Colegio de Abogados", h.fix(250) * n, fmt(h.fix(250)) + " por firma", h.k > 1 ? "ref" : "ok"), h.T("Timbre fiscal de autenticación", 125 * n, "₡125 por firma", "ref"), h.T("Timbre fiscal de hojas", hoja, "₡6,25 la primera y ₡2,50 las siguientes · mínimo ₡12,50", "ref"), h.T("Timbre de Archivos Nacionales", 5, "Guía DNN 2021", "ref")]; if (v.poderes > 0) tim.push(h.T("Timbre fiscal adicional por poder especial", 125 * v.poderes, "₡125 por poder", "ref")); return { hon: [h.fixH("Honorarios · autenticación", 16500, "art. 59 y 92", n)], tim }; },
+  info: { req: ["Presencia del firmante", "Identificación y fe de conocimiento"], cla: ["Razón: doy fe de que la firma que antecede es auténtica, puesta en mi presencia por la persona identificada", "Firma a ruego: se imprime la huella e indica el dedo (art. 111)"], adv: ["No autenticar firmas en blanco", "Verifique que el firmante entienda el contenido", "Si el documento está en otro idioma, traduzca bajo su responsabilidad o resuma su contenido", "El documento conserva su carácter privado"], reg: ["Si la razón no cabe, use papel notarial de seguridad"] } });
+
+add({ id: "certificacion", g: "ext", name: "Certificación notarial", sec: "§11.12 · §17.3", payer: "unico",
+  inputs: [N("n", "Cantidad de asientos", 1)],
+  calc: (v, h) => { const n = Math.max(1, v.n); return { hon: [h.fixH("Honorarios · certificación", 16500, "art. 91", n)], tim: [h.T("Timbre del Colegio de Abogados", h.fix(250) * n, fmt(h.fix(250)) + " por certificación", h.k > 1 ? "ref" : "ok"), h.pend("Especies fiscales", "Se pagan como si las expidiera la oficina de origen")] }; },
+  info: { req: ["Documento original a la vista"], cla: ["Certifico que la copia es fiel y exacta del original", "Indicar si certifica literalmente, en lo conducente o en relación"], adv: ["Consignar datos falsos acarrea sanción disciplinaria, civil y penal", "En documentos privados deje copia auténtica en el archivo de referencias"], reg: [] } });
+
+add({ id: "acta-notarial", g: "ext", name: "Acta notarial o declaración jurada", sec: "§17.1 · §33", payer: "unico",
+  inputs: [SEL("lugar", "Lugar", "not", [["not", "En la notaría"], ["fue", "Fuera de la notaría"]])],
+  calc: (v, h) => ({ hon: [h.fixH("Honorarios · acta notarial", v.lugar === "fue" ? 110000 : 55000, "art. 89")], tim: [h.colT(0), h.arcT(0), h.FIS] }),
+  info: { req: ["Presencia del notario en el lugar", "Descripción objetiva de lo percibido"], cla: ["Introducción: quién solicita y por qué interviene el notario", "Descripción objetiva y concreta", "Anexos y fotografías identificados", "Constancia de que se leyó, o de por qué no se firma"], adv: ["No emita juicios jurídicos ni sobre causas", "Si se redacta fuera del acto, hágalo dentro de 24 horas", "Declaración jurada: advertir las penas del perjurio y falso testimonio"], reg: ["Sirve para constataciones, presencia en asambleas, sorteos, entregas y notificaciones"] } });
+
+add({ id: "otros", g: "ext", name: "Otros servicios tarifados", sec: "§22", payer: "unico",
+  inputs: [SEL("t", "Servicio", "fecha", [["fecha", "Razón de fecha cierta", 55000], ["ulterior", "Ulterior testimonio", 27500], ["estudio", "Estudio de registro", 16500], ["reserva", "Reserva de nombre o de prioridad registral", 55000], ["retiro", "Retiro de documento sin inscribir", 55000], ["hora", "Hora profesional (actos no tarifados)", 82500], ["agente", "Agente residente, por sociedad al año", 110000], ["migra", "Constancia de entradas y salidas del país", 55000], ["imp", "Casos no previstos", 110000]]), N("q", "Cantidad (horas, documentos, años)", 1)],
+  calc: (v, h) => { const m = { fecha: ["Razón de fecha cierta", 55000, "art. 99"], ulterior: ["Ulterior testimonio", 27500, "art. 90"], estudio: ["Estudio de registro", 16500, "art. 93"], reserva: ["Reserva de nombre o prioridad", 55000, "art. 85"], retiro: ["Retiro sin inscribir", 55000, "art. 100"], hora: ["Hora profesional", 82500, "art. 63"], agente: ["Agente residente", 110000, "art. 58"], migra: ["Constancia de migración", 55000, "art. 60"], imp: ["Casos no previstos", 110000, "art. 65"] }[v.t]; return { hon: [h.fixH("Honorarios · " + m[0], m[1], m[2], Math.max(1, v.q))], tim: [], notes: ["Los timbres dependen del trámite: confirme en la guía de la DNN. El retiro sin inscribir está exento de derechos de registro e impuestos."] }; },
+  info: { req: [], cla: [], adv: ["Si el documento consta que no se pagaron los honorarios, ningún otro notario puede tramitarlo hasta que se cancelen (art. 69)"], reg: [] } });
+/*ENGINE_END*/
+/*MACH_START*/
+const MACH = {};
+const BASE = `ESCRITURA NÚMERO ___. Ante mí, ___, notario público con oficina abierta en ___, carné número ___, a las ___ horas del ___ de ___ de dos mil veintiséis, comparecen: 1) ___ (nombre completo), mayor, ___ (estado civil y número de nupcias), ___ (profesión u oficio), vecino de ___, portador de la cédula de identidad número ___, quien comparece en nombre propio / en representación de ___ (cédula jurídica ___) según personería que conozco y doy fe de que se encuentra vigente y con facultades suficientes; 2) ___. Los comparecientes, a quienes identifico y cuya capacidad legal para este acto verifico, DICEN: PRIMERO: (antecedentes y descripción del bien o acto). SEGUNDO: (declaración de voluntad). TERCERO: (precio o cuantía y forma de pago). CUARTO: (estimación para efectos fiscales y de registro). QUINTO: (aceptación).
+
+[Reservas y advertencias: al iniciar la conclusión, todas las que el notario deba hacer por ley (art. 89).]
+[Constancias: documentos que sustentan las daciones de fe y que se agregan al archivo de referencias (art. 90).]
+[Razón de pago (art. 167): «Doy fe de que los comparecientes me han entregado la suma de ___ por concepto de honorarios y de ___ para pagar derechos, timbres e impuestos de este acto, de lo cual extendí el recibo oficial número ___», o «Doy fe de que no he recibido honorarios ni dinero para derechos y timbres de esta escritura».]
+
+Expido el primer testimonio en la forma y por los timbres de ley. Leo lo escrito a los comparecientes, quienes lo aprueban y firmamos en ___ a las ___ horas. (Firmas de los comparecientes y testigos; el notario firma al final, art. 93.)`;
+
+const COMP_SOC = `Si comparece una sociedad: «quien comparece en su condición de ___ con facultades de apoderado ___ de la sociedad ___, cédula jurídica ___, personería que conozco y doy fe de que se encuentra vigente y con facultades suficientes para este acto, según certificación del Registro Nacional que tengo a la vista, expedida el ___».`;
+
+MACH.compraventa = [{ t: "Compraventa de inmueble (§8.1)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario público con oficina abierta en ___, carné número ___, a las ___ horas del ___ de ___ de dos mil veintiséis, comparecen: a) ___, mayor, ___ (estado civil), ___ (profesión u oficio), vecino de ___, portador de la cédula de identidad número ___, en adelante "LA PARTE VENDEDORA"; y b) ___, mayor, ___ (estado civil), ___ (profesión u oficio), vecino de ___, portador de la cédula de identidad número ___, en adelante "LA PARTE COMPRADORA". ${COMP_SOC} Ambas partes manifiestan tener plena capacidad legal para este acto, ser de las calidades indicadas, y DICEN:
+
+PRIMERO (antecedentes): Que LA PARTE VENDEDORA es dueña en propiedad plena de la finca inscrita en el Registro Inmobiliario, Partido de ___, matrícula número ___, naturaleza ___, situada en el distrito ___, cantón ___, provincia de ___, con una medida de ___ metros cuadrados, linderos: norte ___, sur ___, este ___, oeste ___, plano catastrado número ___, libre de gravámenes hipotecarios y anotaciones, salvo ___. [Verifique con estudio registral reciente y transcriba los gravámenes y limitaciones reales.]
+
+SEGUNDO (venta): Que por este acto LA PARTE VENDEDORA VENDE y TRASPASA libre de gravámenes, anotaciones y limitaciones a LA PARTE COMPRADORA el inmueble descrito, con todas sus mejoras, construcciones, instalaciones, servidumbres activas y pasivas, usos, costumbres y derechos, tal y como se encuentra y es conocido por ambas partes.
+
+TERCERO (precio y forma de pago): El precio de la venta es la suma de ___ (___ colones / dólares), que LA PARTE VENDEDORA declara haber recibido a su entera satisfacción mediante ___ (transferencia bancaria / cheque certificado / préstamo hipotecario), de lo que da recibo y finiquito. [Si hay saldo pendiente, consigne plazo, garantía y, si se constituye hipoteca a favor del vendedor, véase la cláusula adicional.]
+
+CUARTO (estimación): Para efectos fiscales y de registro, las partes estiman este contrato en la suma de ___, y declaran que el valor fiscal vigente es ___.
+
+QUINTO (entrega): LA PARTE COMPRADORA recibe el inmueble en este acto en el estado en que se encuentra. LA PARTE VENDEDORA declara que el bien se encuentra al día en el pago del impuesto de bienes inmuebles, servicios municipales y cuotas de condominio o asociación de desarrollo si las hubiere, y se obliga a responder por lo adeudado hasta hoy.
+
+SEXTO (saneamiento): LA PARTE VENDEDORA responde por la evicción y los vicios ocultos conforme a la ley, y declara que el bien no tiene proceso judicial ni administrativo pendiente, no está afectado a patrimonio familiar ni a ninguna otra limitación no consignada en este instrumento.
+
+SÉTIMO (estado civil y bienes): LA PARTE VENDEDORA declara bajo fe de juramento, conociendo las penas con que la ley castiga el perjurio, que su estado civil es ___ y que el inmueble [no forma parte del patrimonio familiar ni constituye bien ganancial sujeto a consentimiento del cónyuge / cuenta con el consentimiento del cónyuge que comparece y firma].
+
+OCTAVO (origen de fondos y cumplimiento normativo): Las partes declaran que los fondos empleados en esta operación son de origen lícito y que han sido informadas de las obligaciones de identificación y reporte previstas en la Ley 8204 y su reglamento, autorizando al notario a suministrar los datos que la ley exija.
+
+NOVENO (gastos, impuestos y timbres): Los honorarios, derechos de registro, timbres e impuestos de traspaso serán pagados por partes iguales, salvo pacto en contrario: ___. El notario queda autorizado para inscribir este instrumento en el Registro Nacional.
+
+DÉCIMO (aceptación): LA PARTE COMPRADORA acepta esta venta en los términos expresados.
+
+CIERRE: Doy fe de haber leído esta escritura a los comparecientes, quienes la aprueban, la encuentran conforme y firmamos en ___ a las ___ horas. [Consigne al final el timbre del Colegio de Abogados (sobre el mayor entre valor real y valor fiscal), el timbre de Archivo Nacional, el fiscal, los derechos de registro, el impuesto de traspaso y los demás rubros.] ___ (firmas de las partes) ___ (firma y sello del notario).` }];
+
+MACH["compraventa-hip"] = [{ t: "Cláusulas que sustituyen la cláusula de pago (§32.1)", x: `[Agregar a la compraventa de la ficha «Compraventa de inmueble», en lugar de la cláusula de pago.]
+
+TERCERO (precio y forma de pago): El precio es ___, que LA PARTE COMPRADORA paga así: a) ___ en este acto, que LA PARTE VENDEDORA declara recibidos a su satisfacción; y b) el saldo de ___, que LA PARTE COMPRADORA reconoce deber a LA PARTE VENDEDORA y se obliga a pagar en ___ cuotas mensuales de ___, con intereses del ___% anual, venciendo la última el ___.
+
+CUARTO (hipoteca a favor del vendedor): En garantía del saldo de precio, sus intereses y costas, LA PARTE COMPRADORA constituye hipoteca de primer grado sobre el inmueble que adquiere por este acto, descrito en el antecedente primero, y reconoce el derecho de LA PARTE VENDEDORA a ejecutarla en caso de mora o vencimiento anticipado conforme a las cláusulas de la hipoteca de primer grado. Estima la hipoteca en ___ y fija como base de remate ___.
+
+[Honorarios: la hipoteca a favor del vendedor paga el 50 % de la Tarifa General (art. 75 h). Los gastos de hipotecas corren por el deudor (art. 68). Un solo instrumento con dos actos suma las cuantías para el timbre del Colegio (art. 109 j).]` },
+{ t: "Compraventa con crédito bancario e hipoteca simultánea (§32.2)", x: `Esquema de comparecencia: vendedor, comprador (deudor) y entidad financiera representada por apoderado con personería vigente.
+Estructura: primera parte, compraventa; segunda parte, hipoteca de primer grado a favor de la entidad con las condiciones de su minuta; tercera parte, instrucciones de desembolso: el notario recibe el dinero (si procede) y lo entrega al vendedor solo cuando conste la presentación al Registro y un estudio sin defectos.
+
+Cláusula de seguridad: «El desembolso del crédito queda sujeto a que el notario verifique que no existen anotaciones ni gravámenes distintos de los declarados y que el documento queda presentado al Registro Nacional con el número de citas ___».
+
+[Muchas entidades imponen su propia minuta y lista de verificación: úselas y adapte solo las cláusulas notariales de identificación, personería, reservas y constancias.]` }];
+
+MACH.donacion = [{ t: "Donación de inmueble con reserva de usufructo (§9.1)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario público con oficina abierta en ___, a las ___ horas del ___ de ___ de dos mil veintiséis, comparecen: a) ___ (nombre, estado civil, profesión, domicilio, cédula), en adelante "EL DONANTE"; y b) ___ (mismos datos), en adelante "EL DONATARIO". [Si el donatario es menor o incapaz, comparece su representante legal y se debe verificar la autorización judicial cuando corresponda.] Los comparecientes, con capacidad legal para este acto, DICEN:
+
+PRIMERO (antecedentes): Que EL DONANTE es dueño en propiedad plena de la finca inscrita en el Registro Inmobiliario, Partido de ___, matrícula número ___, naturaleza ___, situada en ___, con una medida de ___ metros cuadrados, linderos ___, plano catastrado ___, libre de gravámenes y anotaciones salvo ___.
+
+SEGUNDO (donación): Que por este acto EL DONANTE DONA pura, simple e irrevocablemente, en los términos de la ley, la nuda propiedad del inmueble descrito a EL DONATARIO, con todas sus mejoras, construcciones, derechos y servidumbres. [Si se dona la propiedad plena, suprima la cláusula tercera.]
+
+TERCERO (reserva de usufructo): EL DONANTE se reserva el usufructo vitalicio del inmueble, con todos los derechos y obligaciones que la ley asigna al usufructuario. El usufructo se extinguirá por su muerte o por renuncia expresa. EL DONATARIO acepta la reserva.
+
+CUARTO (estimación): Para efectos fiscales y de registro, las partes estiman esta donación en la suma de ___, y declaran que el valor fiscal vigente es ___. [Tome como base el mayor entre el valor real y el fiscal.]
+
+QUINTO (declaraciones del donante): EL DONANTE declara, bajo fe de juramento y conociendo las penas del perjurio, que: a) conserva bienes suficientes para su subsistencia y para cumplir sus obligaciones alimentarias, b) la donación no perjudica la legítima de sus herederos forzosos, c) su estado civil es ___ y el inmueble [no está afectado a patrimonio familiar ni requiere consentimiento de cónyuge / cuenta con el consentimiento del cónyuge, que comparece y firma].
+
+SEXTO (aceptación): EL DONATARIO ACEPTA expresamente esta donación y agradece al donante su liberalidad.
+
+SÉTIMO (cumplimiento normativo): Las partes declaran que no media prestación económica a cambio, que el acto no tiene fines ilícitos y que han sido informadas de sus obligaciones de identificación y reporte conforme a la Ley 8204.
+
+OCTAVO (gastos): Los honorarios, derechos, timbres e impuestos aplicables correrán por cuenta de ___ (donatario / por partes iguales). El notario queda autorizado para inscribir el instrumento.
+
+CIERRE: Leída a los comparecientes, la aprueban y firmamos en ___ a las ___ horas. [Timbres: Colegio de Abogados por cuantía; derechos de registro; Archivo; Agrario; verifique impuestos o exoneraciones aplicables a la donación.] ___ (firmas).` }];
+
+MACH.permuta = [{ t: "Permuta (§23.3)", x: `PRIMERA: ___ es dueño de la finca ___ (descripción completa, art. 88) y ___ es dueño de la finca ___ (descripción completa).
+SEGUNDA: Por este acto permutan sus inmuebles con todo lo que les es propio, estimando cada uno en ___ y ___ respectivamente.
+TERCERA (diferencia): ___ paga a ___ la suma de ___ por diferencia de valor.
+CUARTA: Cada permutante garantiza el saneamiento por evicción y vicios ocultos.
+QUINTA: Gastos por partes iguales.
+[Timbres: Colegio e impuestos sobre ambos valores; verifique cuántos traspasos se gravan. Cierre con el machote base.]` }];
+
+MACH.dacion = [{ t: "Dación en pago (§23.4)", x: `PRIMERA (deuda): EL DEUDOR reconoce deber a EL ACREEDOR ___ (origen y monto).
+SEGUNDA (dación): Para extinguir la obligación EL DEUDOR da en pago, y EL ACREEDOR acepta recibir, el inmueble ___ (descripción completa) estimado en ___.
+TERCERA (efectos): La deuda queda extinguida hasta por ese valor; si el valor del bien excede la deuda, ___; si la deuda excede, ___.
+CUARTA: Cancelación de garantías conexas.
+[Se trata de un traspaso: calcule timbres e impuestos sobre el mayor entre valor real y fiscal.]` }];
+
+MACH.hipoteca = [{ t: "Hipoteca de primer grado (§8.2)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario público con oficina abierta en ___, a las ___ horas del ___ de ___ de dos mil veintiséis, comparecen: a) ___ (datos del acreedor o personería de la entidad acreedora y de quien la representa), en adelante "EL ACREEDOR"; y b) ___ (datos del deudor), en adelante "EL DEUDOR". [Si el hipotecante es un tercero distinto del deudor, agregue sus datos como "EL GARANTE HIPOTECARIO" y ajuste las cláusulas.] Los comparecientes DICEN:
+
+PRIMERO (la deuda): EL DEUDOR reconoce adeudar a EL ACREEDOR la suma de ___ (___ colones / dólares), que recibe en este acto a su entera satisfacción (o ya recibió), y se obliga a pagarla con las condiciones siguientes.
+
+SEGUNDO (plazo y forma de pago): El plazo es de ___ años contados a partir de hoy, y el pago se hará en cuotas mensuales, consecutivas y [iguales / decrecientes] de ___, que incluyen amortización e intereses, pagaderas los días ___ de cada mes en ___ (lugar o cuenta). La primera cuota vence el ___ y la última el ___.
+
+TERCERO (intereses): La deuda devengará intereses corrientes a la tasa del ___% anual, [fija / variable según ___], calculados sobre saldos. En caso de mora, se aplicará una tasa moratoria equivalente a ___% anual adicional sobre el monto vencido, sin perjuicio de lo que dispongan las normas imperativas aplicables.
+
+CUARTO (vencimiento anticipado): EL ACREEDOR podrá dar por vencido el plazo y exigir de inmediato el pago total, con sus intereses y costas, si EL DEUDOR: a) incurre en mora en el pago de ___ cuotas, b) enajena o grava el bien sin autorización, c) no mantiene al día los seguros o el pago de impuestos, d) cae en insolvencia o quiebra, o e) incumple cualquier obligación de este contrato.
+
+QUINTO (garantía hipotecaria): En garantía del pago del principal, intereses, comisiones, costas y gastos de cobro, EL DEUDOR CONSTITUYE HIPOTECA DE PRIMER GRADO sobre la finca inscrita en el Registro Inmobiliario, Partido de ___, matrícula número ___, naturaleza ___, situada en ___, con una medida de ___ metros cuadrados, linderos ___, plano catastrado ___, libre de gravámenes salvo ___, incluyendo todas sus mejoras, construcciones y accesorios.
+
+SEXTO (estimación y base de remate): Para efectos fiscales y de registro, la hipoteca se estima en ___. Para el caso de ejecución, las partes fijan como base de remate la suma de ___ (___ colones / dólares), o el monto que la ley y la jurisprudencia permitan establecer en su momento.
+
+SÉTIMO (obligaciones del deudor): EL DEUDOR se obliga a: a) conservar el bien en buen estado, b) asegurarlo contra incendio y demás riesgos con endoso a favor de EL ACREEDOR, c) pagar puntualmente impuestos y servicios, d) no gravar ni enajenar el bien sin consentimiento escrito de EL ACREEDOR, y e) permitir inspecciones razonables.
+
+OCTAVO (otras garantías): [Fianza / pagaré / aval de ___, que comparece y firma como garante solidario, renunciando a los beneficios de excusión y división].
+
+NOVENO (gastos y costos): Los honorarios, timbres, derechos de registro y demás gastos de esta operación y de su inscripción, y los de su cancelación futura, corren por cuenta de EL DEUDOR, conforme a la regla del Arancel.
+
+DÉCIMO (domicilio y notificaciones): Para efectos de este contrato, las partes señalan como domicilio y lugar de notificaciones: EL ACREEDOR ___, EL DEUDOR ___, comprometiéndose a comunicar cualquier cambio por escrito.
+
+CIERRE: Leída esta escritura a los comparecientes, la aprueban y firmamos en ___ a las ___ horas. [Timbres: Colegio de Abogados sobre el monto garantizado, derechos de registro, Archivo, Agrario y demás; no corresponde impuesto de traspaso.] ___ (firmas).` }];
+
+MACH["cancel-hip"] = [{ t: "Cancelación de hipoteca, modelo breve (§8.2)", x: `«EL ACREEDOR declara que EL DEUDOR ha pagado la totalidad de la obligación garantizada con hipoteca de primer grado sobre la finca ___, que consta en la escritura número ___ otorgada ante el notario ___ el ___ y presentada al Registro Inmobiliario bajo ___, por lo que CANCELA totalmente dicha hipoteca y autoriza su cancelación en el Registro».
+
+[Honorarios: 50 % de la Tarifa General, a cargo del deudor. En hipotecas comunes no se requiere la intervención del deudor (art. 100).]` },
+{ t: "Cancelación de condición resolutoria (§32.7)", x: `PRIMERO: En la escritura número ___ de ___ se vendió la finca ___ con una condición resolutoria a favor de ___ consistente en ___.
+SEGUNDO: Habiéndose cumplido la obligación que garantizaba la condición, EL BENEFICIARIO declara que CANCELA la condición resolutoria inscrita sobre dicha finca y autoriza su cancelación registral.
+[Honorarios: 50 % de la Tarifa General (art. 75 g).]` }];
+
+MACH["mod-hip"] = [{ t: "Modificación de hipoteca (§32.6)", x: `PRIMERO: Según escritura número ___ otorgada ante ___ el ___, EL DEUDOR constituyó hipoteca de primer grado sobre la finca ___ por ___.
+SEGUNDO: Por mutuo acuerdo modifican las cláusulas ___ para que se lean así: ___ (nuevo plazo, tasa, forma de pago).
+TERCERO: [Si hay ampliación de capital, se estima la ampliación en ___ y se consigna como nueva garantía por esa cuantía].
+CUARTO: Se mantienen las demás cláusulas.
+QUINTO: Se autoriza la inscripción.
+[Honorarios: la ampliación del plazo paga Tarifa General; otras modificaciones sin aumento de capital, 50 % (art. 75 j). Los gastos son del deudor.]` },
+{ t: "Asunción de deuda y novación de deudor (§32.5)", x: `ESCRITURA NÚMERO ___. Comparecen: a) EL ACREEDOR; b) EL DEUDOR SALIENTE; c) EL DEUDOR ENTRANTE. DICEN:
+PRIMERO: Que EL DEUDOR SALIENTE adeuda a EL ACREEDOR la suma de ___ según escritura número ___ (hipoteca sobre la finca ___).
+SEGUNDO: Que EL DEUDOR ENTRANTE asume la deuda con sus condiciones de plazo, intereses y garantías, y EL ACREEDOR lo acepta como nuevo deudor, liberando expresamente a EL DEUDOR SALIENTE [o: sin liberarlo].
+TERCERO: La garantía hipotecaria continúa sobre el mismo inmueble.
+CUARTO: Se autoriza la inscripción de la novación.
+[Honorarios: 50 % de la Tarifa General (art. 75 c). Es indispensable el consentimiento del acreedor.]` }];
+
+MACH.segregacion = [{ t: "Segregación de lote en cabeza propia (§11.7)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparece ___, quien DICE: Que es dueño de la finca matrícula ___, y que de ella SEGREGA un lote con las siguientes características: ___ (naturaleza, situación, medida, linderos, plano ___), por un valor estimado de ___. El resto de la finca madre queda con la medida de ___. Se autoriza la inscripción de la segregación y la apertura de la nueva matrícula.
+[Honorarios: 25 % de la Tarifa General con mínimo por finca (art. 76). Timbres: Colegio sobre la cuantía; derechos de registro; Archivo; Agrario.]` }];
+
+MACH.rectificacion = [{ t: "Rectificación de cabida (§23.10)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparece ___, quien DICE: Que es dueño de la finca matrícula ___, inscrita antes del 23 de octubre de 1930 [o es segregación de una finca así inscrita], con una cabida inscrita de ___ m². Que según el plano catastrado número ___, inscrito en el Catastro Nacional el ___, levantado y firmado por ___ (profesional), la cabida real es de ___ m². En consecuencia, DECLARA que RECTIFICA la cabida de la finca a ___ m², por lo que se aumenta/disminuye en ___ m². Doy fe de que la nueva medida es la indicada en el plano inscrito citado y de que el aumento no excede los límites legales. Advierto que la rectificación no perjudica a terceros durante los tres años posteriores a su inscripción.
+[Para disminuciones se exige manifestación expresa del propietario y plano catastrado.]` }];
+
+MACH.servidumbre = [{ t: "Constitución de servidumbre (§11.8)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparecen: a) ___, dueño de la finca matrícula ___ ("FUNDO SIRVIENTE"); y b) ___, dueño de la finca matrícula ___ ("FUNDO DOMINANTE"). DICEN:
+PRIMERO: Que constituyen una servidumbre de ___ (paso, acueducto, cañería, líneas eléctricas, otras) sobre el fundo sirviente a favor del dominante, con un ancho de ___ metros, longitud de ___ metros y área de ___ m², según plano ___, que parte de ___ y llega a ___.
+SEGUNDO: Es [gratuita / onerosa por ___] y de carácter [perpetuo / por plazo de ___].
+TERCERO: Las partes fijan los derechos de ejercicio y mantenimiento.
+CUARTO: Estiman la servidumbre en ___.
+QUINTO: Autorizan su inscripción.` }];
+
+MACH.condominio = [{ t: "Afectación a propiedad en condominio (§11.6)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparece ___ (propietario o representante de la sociedad propietaria, con personería), quien DICE:
+PRIMERO: Es dueño de la finca matrícula ___, naturaleza ___, linderos ___, plano ___.
+SEGUNDO: AFECTA dicho inmueble al régimen de propiedad en condominio denominado "Condominio ___", bajo la modalidad ___ (vertical, horizontal, mixto), conforme al plano constructivo ___ aprobado por ___ el ___.
+TERCERO: El condominio estará conformado por ___ fincas filiales, identificadas con matrículas ___, con las medidas y porcentajes de condominio siguientes: ___ (cuadro por filial: área privativa, área común asignada, porcentaje de participación).
+CUARTO: Constituye como zonas comunes ___ (descripción) y zonas de uso exclusivo ___.
+QUINTO: Adopta el Reglamento de Condominio, que protocoliza como anexo y forma parte integral de esta escritura, con administración a cargo de ___.
+SEXTO: Autoriza la inscripción del condominio y la apertura de las matrículas filiales.
+CIERRE como en el modelo base.
+[Requisitos previos: planos constructivos aprobados, planos catastrados de cada filial y zonas comunes, permisos municipales, uso de suelo conforme, reglamento y certificación de inmueble libre de gravámenes o consentimiento de acreedores.]` },
+{ t: "Compraventa de finca filial: cláusulas adicionales (§32.4)", x: `Agregar a la compraventa base:
+a) Identificación de la finca filial con su número de filial y matrícula, medida privativa y porcentaje de participación en las áreas comunes.
+b) Declaración de que LA PARTE VENDEDORA aporta certificación del administrador de que las cuotas de condominio están al día.
+c) Que LA PARTE COMPRADORA conoce y acepta el Reglamento de Condominio, sus modificaciones y las obligaciones de contribuir a gastos comunes.
+d) Que el bien está sujeto al régimen de propiedad horizontal conforme a la ley de la materia.
+[Archive en el archivo de referencias la certificación del administrador y el reglamento.]` }];
+
+MACH.arrendamiento = [{ t: "Arrendamiento en escritura pública (§23.2)", x: `PRIMERA: EL ARRENDANTE da en arrendamiento a EL ARRENDATARIO el inmueble ___ (descripción) para uso exclusivo de ___.
+SEGUNDA (plazo): ___ años desde el ___, prorrogable ___.
+TERCERA (renta): ___ mensuales, pagaderos por adelantado los primeros ___ días de cada mes en ___, con revalorización anual de ___.
+CUARTA (depósito): ___.
+QUINTA (obligaciones): conservación, servicios públicos, mejoras y reparaciones.
+SEXTA (prohibiciones): subarrendar y ceder sin autorización escrita.
+SÉPTIMA: Terminación y entrega.
+OCTAVA (estimación): el contrato se estima en ___ (suma de rentas del plazo).
+[Verifique las reglas imperativas de la ley de arrendamientos urbanos y suburbanos y el régimen aplicable a locales comerciales.]` },
+{ t: "Comodato (§38.7)", x: `PRIMERA: EL COMODANTE entrega a EL COMODATARIO, en comodato o préstamo de uso gratuito, el inmueble ___ (descripción) para uso de ___.
+SEGUNDA: Plazo de ___.
+TERCERA: EL COMODATARIO conserva el bien con diligencia, no puede cederlo ni subarrendarlo y paga los servicios.
+CUARTA: Restitución al vencimiento o por requerimiento si surge necesidad urgente del comodante.
+QUINTA: Estimación para efectos de registro: ___.` }];
+
+MACH.opcion = [{ t: "Opción de compraventa (§23.1)", x: `PRIMERA (antecedentes): ___ es dueño de la finca matrícula ___ (descripción completa, art. 88).
+SEGUNDA (opción): EL CONCEDENTE otorga a EL OPTANTE una opción de compra irrevocable sobre el inmueble, por el precio de ___, vigente hasta las ___ horas del ___.
+TERCERA (prima): EL OPTANTE paga en este acto ___ por la concesión de la opción [que se imputará / que no se imputará al precio].
+CUARTA (ejercicio): La opción se ejerce mediante comunicación escrita al domicilio de EL CONCEDENTE antes del vencimiento y la firma de la escritura de compraventa en un plazo de ___ días.
+QUINTA (obligaciones del concedente): no gravar, no enajenar ni arrendar el bien durante la vigencia.
+SEXTA (incumplimiento): ___.
+[Honorarios: 50 % de la Tarifa General (art. 75 m). Verifique el efecto registral y la forma de inscripción.]` }];
+/*MACH1_END*/
+MACH["veh-traspaso"] = [{ t: "Traspaso de vehículo en escritura pública (§9.2)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario público con oficina abierta en ___, a las ___ horas del ___ de ___ de dos mil veintiséis, comparecen: a) ___ (datos), "EL VENDEDOR"; y b) ___ (datos), "EL COMPRADOR". Los comparecientes DICEN:
+
+PRIMERO (antecedentes): Que EL VENDEDOR es dueño del vehículo inscrito en el Registro de Bienes Muebles, Partido de Vehículos, placa número ___, marca ___, estilo ___, año ___, color ___, número de VIN ___, número de motor ___, combustible ___, cilindrada ___, capacidad ___, libre de gravámenes prendarios, anotaciones y limitaciones, salvo ___.
+
+SEGUNDO (venta): Por este acto EL VENDEDOR VENDE y TRASPASA el vehículo descrito a EL COMPRADOR, libre de gravámenes y limitaciones, con todos sus accesorios y en el estado en que se encuentra, conocido por EL COMPRADOR.
+
+TERCERO (precio): El precio es la suma de ___, que EL VENDEDOR declara haber recibido a su entera satisfacción mediante ___ (transferencia bancaria / cheque certificado), de lo que da recibo y finiquito. [Verifique el medio de pago y los requisitos de bancarización y de prevención de legitimación de capitales.]
+
+CUARTO (estimación): Para efectos fiscales y de registro, las partes estiman el contrato en ___ y declaran que el valor fiscal vigente consignado por Hacienda es ___.
+
+QUINTO (entrega y saneamiento): El vehículo se entrega en este acto. EL VENDEDOR responde por la evicción y los vicios ocultos y declara que el vehículo está libre de multas pendientes, impuestos y derechos de circulación adeudados hasta hoy, y que no ha sido objeto de denuncia por robo ni requerimiento judicial.
+
+SEXTO (responsabilidad posterior): EL COMPRADOR asume, desde hoy, toda responsabilidad civil y penal derivada del uso y tenencia del vehículo, y de los impuestos, derechos y multas que se generen.
+
+SÉTIMO (gastos): Los honorarios, derechos de registro, impuestos y timbres se pagarán por partes iguales, salvo pacto distinto: ___.
+
+CIERRE: Leída a los comparecientes, la aprueban y firmamos en ___ a las ___ horas. [Timbres: derechos de inscripción de traspaso (₡5 por millar, mínimo ₡2.000), Agrario (₡3 por millar), Parques Nacionales (₡500), Archivo, Colegio de Abogados y fiscal, e impuesto de traspaso del 2,5 % sobre la base imponible. Confirme las tarifas vigentes en el Registro de Bienes Muebles.] ___ (firmas).` }];
+
+MACH.prenda = [{ t: "Esquema de prenda en escritura (§4.3 · §21.4)", x: `[El manual no trae machote completo de prenda; este esquema reúne lo que el art. 176 exige que contenga el contrato.]
+
+Comparecencia: acreedor y deudor, con personería si es entidad.
+PRIMERA (deuda): reconocimiento del monto adeudado, plazo, intereses y forma de pago.
+SEGUNDA (garantía): EL DEUDOR constituye prenda sobre el bien ___ (vehículo con placa, VIN y motor; descripción exacta), inscrito en el Registro de Bienes Muebles bajo ___.
+TERCERA (responsabilidad y estimación): responsabilidad que garantiza la prenda y estimación del bien para el remate: ___.
+CUARTA (depositario): EL DEUDOR conserva la posesión a nombre del acreedor y asume las obligaciones de depositario.
+QUINTA (seguro): ___ (si lo hay).
+SEXTA (pago): lugar de pago de capital e intereses y fecha de vencimiento: ___.
+SÉPTIMA (gastos): a cargo del deudor.
+[Las prendas sobre vehículos, buques y aeronaves deben constituirse en escritura pública. Sobre otros bienes muebles pueden otorgarse en documento privado con la firma del deudor autenticada.]` }];
+
+MACH["cancel-prenda"] = [{ t: "Cancelación de prenda (§23.6)", x: `«EL ACREEDOR PRENDARIO declara que EL DEUDOR ha pagado íntegramente la obligación garantizada con prenda sobre ___ (descripción del bien con placa, VIN o número de serie), inscrita en el Registro de Bienes Muebles bajo ___, por lo que CANCELA totalmente la prenda y autoriza su cancelación registral».
+[Honorarios: 50 % de la Tarifa General y costos a cargo del deudor.]` }];
+
+MACH.constitucion = [{ t: "Constitución de sociedad anónima (§8.3)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario público con oficina abierta en ___, a las ___ horas del ___ de ___ de dos mil veintiséis, comparecen: 1) ___ (nombre, cédula, estado civil, profesión, domicilio) y 2) ___ (mismos datos). Los comparecientes, con capacidad legal, DICEN: Que han convenido constituir una sociedad anónima que se regirá por las siguientes estipulaciones:
+
+PRIMERA (denominación): La sociedad se denominará ___ Sociedad Anónima, nombre que podrá abreviarse ___ S.A. [Verifique que la reserva de nombre esté vigente.]
+
+SEGUNDA (domicilio): Su domicilio social será ___, provincia de ___, y podrá abrir sucursales o agencias en el país o en el extranjero.
+
+TERCERA (objeto): La sociedad se dedicará al comercio en general, a la industria, a la agricultura, a la ganadería, a la prestación de servicios de toda índole, a la inversión inmobiliaria y mobiliaria, a la importación y exportación y, en general, a cualquier actividad lícita permitida por la ley, pudiendo adquirir y gravar bienes, otorgar garantías y celebrar contratos. [Si hay un objeto específico regulado por ley especial, ajústelo y verifique requisitos adicionales.]
+
+CUARTA (plazo): El plazo social es de ___ años contados a partir de hoy. [Opción: noventa y nueve años.]
+
+QUINTA (capital social): El capital social es de ___ colones, representado por ___ acciones comunes y nominativas de ___ colones cada una, totalmente suscritas y pagadas en este acto por los socios así: a) ___ suscribe ___ acciones y paga ___ [en efectivo / mediante aporte del bien ___]; b) ___ suscribe ___ acciones y paga ___. [Si se paga en efectivo, el notario da fe de que el dinero fue entregado a la sociedad. Si hay aporte en especie, describa el bien y su valor.]
+
+SEXTA (acciones): Las acciones serán nominativas, estarán representadas en títulos que se emitirán conforme al Código de Comercio y se anotarán en el libro de Registro de Accionistas.
+
+SÉTIMA (órgano de administración): La administración estará a cargo de una Junta Directiva compuesta por un Presidente, un Secretario y un Tesorero, y un Fiscal. Los miembros serán nombrados por la Asamblea de Accionistas por períodos de ___ años y podrán ser reelectos. El Presidente y el Secretario tendrán la representación judicial y extrajudicial de la sociedad con facultades de apoderados generalísimos sin límite de suma, actuando conjunta o separadamente, según el artículo 1253 del Código Civil, pudiendo delegar sus poderes en todo o en parte y revocar sustituciones. [Ajuste la fórmula de representación al acuerdo de los socios.]
+
+OCTAVA (asambleas): Las asambleas ordinarias se reunirán dentro de los tres meses siguientes al cierre del ejercicio económico, y las extraordinarias cuando lo convoque la Junta Directiva o lo soliciten socios que representen el porcentaje legal. La convocatoria se hará mediante ___ (publicación, correo electrónico o notificación personal), con ___ días de anticipación. El quórum y las mayorías serán los del Código de Comercio.
+
+NOVENA (fiscalización): El Fiscal vigilará la gestión social y podrá examinar libros y documentos.
+
+DÉCIMA (ejercicio económico y reservas): El ejercicio económico termina el ___ de cada año. De las utilidades se separará el porcentaje legal para reserva legal hasta alcanzar el límite que establece la ley, y el resto se distribuirá según acuerde la asamblea.
+
+DÉCIMA PRIMERA (disolución y liquidación): La sociedad se disolverá por las causas legales y por acuerdo de los socios. La liquidación estará a cargo de ___ o de quien designe la asamblea, conforme al Código de Comercio.
+
+DÉCIMA SEGUNDA (agente residente): [Si ningún miembro de la administración reside en Costa Rica:] Se nombra agente residente a ___, abogado, cédula ___, domicilio ___, para atender notificaciones judiciales y administrativas.
+
+DÉCIMA TERCERA (nombramientos): Se nombra a los siguientes miembros de la Junta Directiva y Fiscal por el plazo de ___ años: Presidente ___, cédula ___; Secretario ___, cédula ___; Tesorero ___, cédula ___; Fiscal ___, cédula ___. Todos aceptan sus cargos y declaran no estar impedidos legalmente para desempeñarlos.
+
+DÉCIMA CUARTA (beneficiario final y legitimación): Los socios declaran que los beneficiarios finales de la sociedad son ___ y que el aporte al capital proviene de fuentes lícitas, y autorizan al notario a suministrar la información que la ley exija ante el Registro de Transparencia y Beneficiarios Finales y demás autoridades.
+
+DÉCIMA QUINTA (disposiciones finales): En todo lo no previsto se aplicará el Código de Comercio. Se autoriza al notario para inscribir esta escritura y subsanar defectos formales.
+
+CIERRE: Leída a los comparecientes, la aprueban y firmamos en ___ a las ___ horas. [Timbres: Colegio de Abogados sobre el capital social, derechos de inscripción de personas jurídicas, Archivo y fiscal, y el aporte al Registro de Transparencia si aplica.] ___ (firmas).
+[Pasos posteriores: inscribir en el Registro de Personas Jurídicas, tramitar cédula jurídica y legalizar libros (Actas de Asamblea, Junta Directiva, Registro de Accionistas, contabilidad).]` },
+{ t: "Constitución de sociedad de responsabilidad limitada (§31.1)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario público con oficina en ___, a las ___ horas del ___ de ___ de dos mil ___, comparecen ___ y ___ (datos completos de cada socio, con estado civil y número de nupcias), quienes DICEN: Que constituyen una sociedad de responsabilidad limitada con los siguientes estatutos:
+
+PRIMERA (denominación): ___ Sociedad de Responsabilidad Limitada, abreviable ___ S.R.L.
+SEGUNDA (domicilio): ___.
+TERCERA (objeto): comercio en general y, en particular, ___; podrá realizar toda actividad lícita relacionada.
+CUARTA (plazo): ___ años.
+QUINTA (capital): ___ colones, dividido en ___ cuotas nominativas de ___ cada una, suscritas y pagadas así: ___ suscribe ___ cuotas y paga ___; ___ suscribe ___ cuotas y paga ___.
+SEXTA (cuotas): no se emiten títulos negociables; las cuotas constan en el libro de registro de socios y su cesión requiere el consentimiento de los demás socios según este pacto: ___.
+SÉTIMA (administración): la administrará uno o varios gerentes, socios o no, nombrados por la asamblea de socios por el plazo de ___; el gerente tiene la representación judicial y extrajudicial con facultades de apoderado generalísimo sin límite de suma (o la fórmula pactada).
+OCTAVA (asambleas): se convocan por ___ con ___ días de anticipación; quórum y mayorías según este pacto y la ley.
+NOVENA (ejercicio económico, reservas y utilidades): ___.
+DÉCIMA (disolución y liquidación): causas legales y por acuerdo de socios.
+DÉCIMA PRIMERA (agente residente, si corresponde): ___.
+DÉCIMA SEGUNDA (nombramientos): gerente ___, con la aceptación expresa del cargo.
+DÉCIMA TERCERA (beneficiarios finales y origen de fondos): ___.
+Cierre conforme al machote base.
+[Verifique reservas legales y requisitos específicos de las S.R.L. en el Código de Comercio.]` }];
+
+MACH.acta = [{ t: "Protocolización de acta de asamblea (§11.10)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparece ___ (nombre, cédula, cargo), en su condición de ___ de la sociedad ___, cédula jurídica ___, con la representación acreditada en certificación que tengo a la vista, quien SOLICITA la PROTOCOLIZACIÓN del acta número ___ de la Asamblea General ___, celebrada el ___ a las ___ horas en ___, que consta en el folio ___ del libro de Actas de Asamblea de Accionistas número ___ legalizado el ___, y de la que doy fe que fue tomada del libro original y concuerda con él, cuyo texto es el siguiente: ___ (transcripción íntegra de los acuerdos). Doy fe de que se cumplieron los requisitos de convocatoria y quórum y de que no hay impedimentos para los nombrados. Se autoriza la inscripción en el Registro de Personas Jurídicas.` },
+{ t: "Acta de aumento de capital y protocolización (§31.2)", x: `PASO 1: ACTA DE ASAMBLEA GENERAL EXTRAORDINARIA DE ___. En ___, a las ___ horas del ___, se reúne la asamblea con la totalidad del capital social presente (o con la convocatoria de ___ hecha el ___), presidida por ___, secretario ___. ÚNICO ACUERDO: Se aumenta el capital social de ___ a ___ colones mediante la emisión de ___ nuevas acciones (cuotas) de ___ cada una, que se suscriben y pagan así: ___ (capitalización de utilidades o aporte en efectivo o en especie). Se reforma la cláusula ___ del pacto social para que se lea: [texto de la cláusula reformada]. Se autoriza a ___ para protocolizar. Votos a favor ___; en contra ___. Firman presidente y secretario.
+
+PASO 2: Protocolice con el modelo anterior, agregando la constancia de que se verificó que el nuevo capital está íntegramente suscrito y pagado y que se respetó el derecho de preferencia de los socios cuando proceda.` },
+{ t: "Reducción de capital (§31.3)", x: `ACUERDO: Se reduce el capital social de ___ a ___ colones, mediante [la cancelación de ___ acciones / la reducción del valor nominal de cada una a ___], con reembolso a los accionistas de ___. Se reforma la cláusula ___. Se cumplirán los trámites de publicación y oposición de acreedores que exige el Código de Comercio antes de ejecutar el reembolso.
+[Acto sensible: verifique los avisos, los plazos de oposición y los límites, y no autorice la escritura antes de cumplirlos.]` },
+{ t: "Reforma de estatutos (§31.4)", x: `PRIMERO: Que según acta de asamblea ___ número ___, celebrada el ___, se acordó reformar las cláusulas ___ del pacto constitutivo.
+SEGUNDO: Las cláusulas reformadas se leen así: ___.
+TERCERO: Doy fe de la personería de quien comparece, de que el libro de actas está legalizado y de que se cumplieron los requisitos de convocatoria y quórum.
+CUARTO: Se autoriza la inscripción.
+[Si la reforma cambia el domicilio, el objeto o la representación, verifique si procede publicación o efectos frente a terceros.]` },
+{ t: "Nombramiento, renuncia y revocatoria de administradores (§31.5)", x: `NOMBRAMIENTO: ACUERDO: Se nombra como presidente a ___, secretario a ___, tesorero a ___ y fiscal a ___, por el plazo de ___ años, quienes aceptan el cargo y declaran no estar impedidos legalmente. Se revocan los nombramientos anteriores.
+
+RENUNCIA: ACUERDO: Se acepta la renuncia de ___ al cargo de ___ presentada el ___. Se nombra en su lugar a ___ por el resto del período. [Verifique que la renuncia haya sido comunicada a la sociedad y que quien la presenta firmó o autenticó su firma.]
+
+REVOCATORIA: ACUERDO: Se revoca el nombramiento de ___ como ___ con efecto inmediato. Se nombra a ___ en su lugar.` },
+{ t: "Fusión por absorción (§31.6)", x: `[Procedimiento: 1) proyecto de fusión aprobado por las juntas directivas; 2) actas de asamblea extraordinaria de cada sociedad aprobando la fusión y el balance a una fecha; 3) publicación de avisos y espera del plazo de oposición de acreedores; 4) escritura pública de fusión; 5) inscripción en Personas Jurídicas y comunicación a autoridades tributarias y de seguridad social.]
+
+ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparecen ___ en representación de la sociedad ABSORBENTE ___ (cédula jurídica ___) y ___ en representación de la sociedad ABSORBIDA ___ (cédula jurídica ___), con personerías que doy fe vigentes. DICEN:
+PRIMERO: Según actas de asamblea de ___ y de ___, ambas protocolizadas (o adjuntas), se acordó la fusión por absorción.
+SEGUNDO: Los balances que sirvieron de base están fechados el ___ y se agregan al archivo de referencias.
+TERCERO: LA ABSORBENTE adquiere a título universal todo el patrimonio de LA ABSORBIDA, activos y pasivos, incluyendo los bienes inscritos que se detallan: ___ (descripción registral de cada inmueble o mueble).
+CUARTO: La sociedad absorbida se disuelve sin liquidación y se cancela su inscripción.
+QUINTO: Se reforma la cláusula ___ del pacto de la absorbente para reflejar el aumento de capital: ___.
+SEXTO: Se hizo la publicación de los avisos de ley los días ___ y transcurrió el plazo de oposición sin que se presentara ninguna. Se acompaña constancia.
+SÉPTIMO: Se autoriza la inscripción de la fusión y el traspaso de los bienes inscritos.
+[Verifique los efectos tributarios y registrales de los bienes transferidos.]` },
+{ t: "Transformación de sociedad (§31.7)", x: `PRIMERO: Según acta de asamblea ___, se acordó transformar la sociedad ___ S.A., cédula jurídica ___, en una sociedad de responsabilidad limitada, manteniendo su personalidad jurídica y su patrimonio.
+SEGUNDO: La sociedad se denominará ___ S.R.L.
+TERCERO: Se adoptan los siguientes estatutos: ___ (texto íntegro).
+CUARTO: Las acciones se canjean por cuotas en proporción: ___.
+QUINTO: Se nombra al gerente ___.
+SEXTO: Se autoriza la inscripción y las comunicaciones de ley.
+[Verifique el procedimiento de transformación y los efectos en derechos de terceros.]` },
+{ t: "Disolución y liquidación (§31.8)", x: `DISOLUCIÓN: ACUERDO: Se disuelve la sociedad ___ por [vencimiento del plazo / acuerdo de los socios / pérdida del capital / otra causa legal], y se nombra liquidador a ___, con las facultades que le confiere la ley. Se ordena la publicación del aviso de disolución según el Código de Comercio.
+
+Escritura de disolución: protocolice el acta, deje constancia de los avisos y del nombramiento del liquidador, y autorice la inscripción.
+Liquidación y cierre: el liquidador presenta el balance final, se distribuye el remanente entre los socios y se protocoliza el acta de cierre con la cancelación de la inscripción.
+[Verifique las obligaciones tributarias y de seguridad social pendientes antes de cancelar la inscripción.]` }];
+
+MACH.cuotas = [{ t: "Traspaso de cuotas de S.R.L. (§11.9)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparecen: a) ___ (cedente), y b) ___ (cesionario). DICEN:
+PRIMERO: Que la sociedad ___ S.R.L., cédula jurídica ___, tiene un capital de ___ dividido en ___ cuotas de ___ cada una, inscrito en el Registro de Personas Jurídicas.
+SEGUNDO: Que el cedente es dueño de ___ cuotas, números ___ a ___, libres de gravámenes.
+TERCERO: Por este acto CEDE y TRASPASA dichas cuotas al cesionario por el precio de ___, que declara haber recibido, con todos los derechos y obligaciones inherentes.
+CUARTO: Declaran que se cumplió el consentimiento de los demás socios exigido por el pacto social y la ley (se protocoliza el acta de ___ como anexo).
+QUINTO: El cesionario acepta. Se autoriza la anotación en el libro de socios y la inscripción en el Registro.
+[Para sociedades anónimas, la transmisión de acciones nominativas se hace por endoso y registro, sin escritura, salvo que el pacto o la operación exija otra forma.]` }];
+
+MACH.fundacion = [{ t: "Esquema de asociación o fundación (§23.8 · §31.9)", x: `[Verifique en la ley de asociaciones o de fundaciones el número mínimo de asociados, el patrimonio inicial, los requisitos de estatutos y los trámites ante el Registro y las autoridades de control.]
+
+1. Comparecencia de los fundadores o asociados.
+2. Acuerdo de constituir la asociación o fundación ___, sin fines de lucro, con el fin de ___.
+3. Aporte del patrimonio inicial (descripción, valor y forma de entrega).
+4. Estatutos: denominación, domicilio, fines no lucrativos, patrimonio, asociados (derechos y deberes) o consejo de administración, órganos (asamblea general, junta directiva, fiscalía), representación, fiscalización, reformas, disolución y destino de bienes.
+5. Nombramiento de la primera Junta Directiva u órgano de administración.
+6. Autorización para inscribir.` }];
+
+MACH.poder = [{ t: "Poder generalísimo de persona física (§8.4.1)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario público con oficina abierta en ___, a las ___ horas del ___ de ___ de dos mil veintiséis, comparece ___ (nombre, estado civil, profesión, domicilio, cédula), con plena capacidad legal para este acto, quien DICE: Que confiere PODER GENERALÍSIMO SIN LÍMITE DE SUMA a favor de ___ (nombre, estado civil, profesión, domicilio, cédula), en adelante EL APODERADO, para que, en nombre y representación del poderdante, ejerza todas las facultades que confiere el artículo 1253 del Código Civil y administre y disponga de sus bienes, incluyendo vender, hipotecar, gravar, permutar, donar, comparecer ante toda clase de autoridades administrativas y judiciales, otorgar y firmar escrituras públicas y documentos privados y aceptar herencias con beneficio de inventario. Plazo: ___ años (o «indefinido hasta su revocatoria expresa»). Sustitución: EL APODERADO podrá sustituir este poder en todo o en parte, reservándose su ejercicio. Aceptación: EL APODERADO acepta el cargo.` },
+{ t: "Poder general (§8.4.2)", x: `Se redacta igual que el generalísimo, con este texto: «confiere PODER GENERAL a favor de ___ para que administre todos sus bienes y negocios, comparezca ante toda clase de autoridades y oficinas públicas, cobre y reciba, firme documentos y contratos de administración, sin facultad para vender, hipotecar o gravar sus bienes inmuebles, ni para donar, y que en general ejerza las facultades del artículo 1255 del Código Civil».
+[Verifique la redacción vigente de los artículos citados.]` },
+{ t: "Poder especial (§8.4.3)", x: `«…confiere PODER ESPECIAL a favor de ___ para que, en nombre y representación del poderdante, proceda a ___ (descripción precisa del acto: vender el inmueble matrícula ___ por un precio no menor a ___, firmar la escritura de traspaso, recibir el precio y otorgar finiquito). El apoderado no podrá ejecutar actos distintos de los aquí expresados. Plazo: ___ días contados a partir de hoy».
+[En poderes especiales autenticados en documento privado, el timbre fiscal es de ₡125 adicionales por poder.]` },
+{ t: "Poder especial judicial (§8.4.4)", x: `«…confiere PODER ESPECIAL JUDICIAL a favor del licenciado ___, abogado, carné ___, para que lo represente en el proceso ___ ante el despacho ___, con las facultades de interponer y contestar demandas, ofrecer y recibir pruebas, recurrir, conciliar, transigir, desistir, recibir pagos y comparecer en todas las instancias, sustituyéndolo en otro abogado si lo estima conveniente».
+[Verifique que las facultades de transigir, desistir y recibir estén expresamente consignadas, pues se exigen de forma explícita.]` },
+{ t: "Poder otorgado por una sociedad (§8.4.5)", x: `El notario inicia con la certificación de personería que acredite la existencia de la sociedad, su cédula jurídica, la representación de quien comparece, sus facultades y la vigencia, e indica el artículo de los estatutos que lo autoriza a otorgar poderes. El resto del texto es igual a los modelos anteriores, sustituyendo «el poderdante» por «la sociedad». Inscriba en el Registro de Personas Jurídicas cuando sea poder generalísimo o general de sociedades.` },
+{ t: "Revocatoria de poder (§8.4.5)", x: `«El poderdante REVOCA totalmente el poder conferido a ___ en la escritura número ___ otorgada ante el notario ___ el ___ de ___ de ___, quedando sin efecto todas sus facultades, e instruye al notario para su anotación en el Registro correspondiente».
+[Honorarios mínimos: ₡82.500 base 2015.]` },
+{ t: "Protocolización de poder otorgado en el extranjero (§32.9)", x: `[Requisitos: poder otorgado conforme a la ley del país de origen, con legalización o apostilla exigible, traducción oficial si no está en español (o traducción del notario bajo su responsabilidad, art. 109) y verificación de que las facultades son suficientes y vigentes conforme a la ley costarricense.]
+
+ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparece ___ (apoderado), quien SOLICITA la protocolización del poder otorgado a su favor por ___ ante el notario ___ de ___ (país), el ___, apostillado/legalizado el ___ por ___, y traducido por ___. Copio fielmente en lo conducente: ___. Confronté con el original y la traducción y resultó conforme. Conservo copia en mi archivo de referencias.
+[Protocolizar un documento privado no lo convierte en público ni sirve para inscribir salvo las excepciones del art. 107.]` }];
+
+MACH.testamento = [{ t: "Testamento abierto (§9.4)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario público con oficina abierta en ___, a las ___ horas del ___ de ___ de dos mil veintiséis, comparece ___ (nombre, estado civil, profesión, domicilio, cédula), a quien identifico y a quien juzgo, por sus respuestas y conducta, en pleno goce de sus facultades mentales y con capacidad testamentaria. Se encuentran presentes los testigos instrumentales ___ (nombre, cédula, domicilio), ___ y ___, mayores de edad, sin impedimento legal, a quienes conozco o identifico. [Verifique en el Código Civil el número de testigos, sus requisitos e impedimentos, y su presencia continua durante el acto.] El compareciente MANIFIESTA que otorga su testamento abierto, en las siguientes disposiciones:
+
+PRIMERA (declaraciones personales): Declara ser de estado civil ___, haber nacido en ___ el ___, hijo de ___ y ___, con los siguientes hijos y descendientes: ___; cónyuge o conviviente: ___; y no haber otorgado testamento anterior, o revocar los anteriores, salvo ___.
+
+SEGUNDA (alimentos y legítimas): El testador declara conocer las obligaciones alimentarias y las legítimas que establece la ley, y dispone de sus bienes sin perjudicarlas.
+
+TERCERA (instituciones de herederos): Instituye como herederos universales a ___ (nombres), por partes ___; y, para el caso de que alguno de ellos fallezca antes que el testador o no acepte, sustituye vulgarmente a ___.
+
+CUARTA (legados): Lega a ___ el bien ___ (descripción), libre de gravámenes en lo posible; y a ___ la suma de ___.
+
+QUINTA (albacea): Designa como albacea a ___ con las facultades que la ley le concede y relevado de rendir garantía. [Verifique la legislación vigente sobre albaceas.]
+
+SEXTA (revocatoria y cláusulas finales): Revoca cualquier testamento anterior y declara que éste contiene su última voluntad. Pide que se le dé el cumplimiento legal.
+
+CIERRE: Leído por el notario en voz alta al testador y a los testigos, quienes lo aprueban y firman conmigo en ___ a las ___ horas. [Anote en los índices y deposite en el Archivo Notarial. El notario debe guardar absoluta reserva del contenido.] ___ (firmas del testador, testigos y notario).` }];
+
+MACH.fideicomiso = [{ t: "Fideicomiso inmobiliario o de garantía (§9.3)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario público con oficina abierta en ___, a las ___ horas del ___ de ___ de dos mil veintiséis, comparecen: a) ___ (datos), "EL FIDEICOMITENTE"; b) ___, cédula jurídica ___, representada por ___ (personería vigente), "EL FIDUCIARIO"; y c) ___ (datos), "EL FIDEICOMISARIO". Los comparecientes DICEN:
+
+PRIMERO (constitución): Que constituyen un fideicomiso conforme al Código de Comercio, denominado "Fideicomiso ___", que se regirá por las cláusulas de este contrato.
+
+SEGUNDO (fin): El fin del fideicomiso es ___ (por ejemplo: garantizar el pago de las obligaciones del fideicomitente frente al fideicomisario / desarrollar un proyecto inmobiliario sobre las fincas ___).
+
+TERCERO (patrimonio fideicometido): EL FIDEICOMITENTE traspasa a EL FIDUCIARIO, en propiedad fiduciaria, el inmueble inscrito en el Registro Inmobiliario, matrícula ___, naturaleza ___, linderos ___, plano ___, libre de gravámenes salvo ___, estimado en ___. Los frutos, rentas y bienes adquiridos con él integran el patrimonio del fideicomiso, el cual es distinto del patrimonio del fiduciario.
+
+CUARTO (plazo): El plazo del fideicomiso es de ___ años o hasta el cumplimiento de su fin, sin exceder el límite legal.
+
+QUINTO (facultades y obligaciones del fiduciario): EL FIDUCIARIO ejercerá las facultades de dominio y administración necesarias para el fin del fideicomiso, con las limitaciones de este contrato, y se obliga a: a) cumplir fielmente las instrucciones del fideicomitente, b) llevar contabilidad separada, c) rendir cuentas a EL FIDEICOMISARIO cada ___ meses, d) conservar el patrimonio fideicometido, y e) inscribir los actos que lo requieran.
+
+SEXTO (derechos del fideicomisario): EL FIDEICOMISARIO tendrá derecho a ___ (recibir los bienes, el producto de su venta o la garantía de su crédito) en los términos y condiciones pactados.
+
+SÉTIMO (honorarios del fiduciario): EL FIDUCIARIO cobrará ___ por su gestión, que se pagará por ___.
+
+OCTAVO (causas de extinción): El fideicomiso se extingue por: a) cumplimiento del fin, b) vencimiento del plazo, c) imposibilidad de cumplirlo, d) revocatoria cuando sea posible conforme a la ley y a este contrato, e) las demás causas legales. Extinguido, EL FIDUCIARIO transferirá los bienes a ___ (fideicomitente o fideicomisario) y otorgará la escritura respectiva.
+
+NOVENO (estimación y beneficiario final): Para efectos fiscales, las partes estiman el contrato en ___. Declaran, además, que los beneficiarios finales son ___ y que los fondos y bienes son de origen lícito.
+
+DÉCIMO (inscripción): Se autoriza al notario para presentar este instrumento al Registro Inmobiliario y cumplir los requisitos de inscripción del fideicomiso y de la propiedad fiduciaria.
+
+CIERRE: Leída a los comparecientes, la aprueban y firmamos en ___ a las ___ horas. [Timbres: Colegio de Abogados sobre la cuantía; derechos de registro; Archivo; Agrario. Verifique la exoneración del impuesto de traspaso y de derechos de registro en fideicomisos de garantía con entidades supervisadas por SUGEF; el timbre del Colegio sí se paga.] ___ (firmas).` }];
+/*MACH2_END*/
+MACH.capitulaciones = [{ t: "Capitulaciones matrimoniales (§11.1)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario público con oficina abierta en ___, a las ___ horas del ___ de ___ de dos mil veintiséis, comparecen ___ y ___ (datos completos de ambos, estado civil, cédulas, domicilio), quienes manifiestan que [contraerán matrimonio el ___ / son casados entre sí desde el ___] y DICEN:
+
+PRIMERA (régimen económico): Que, conforme al Código de Familia, pactan que su régimen patrimonial será ___ (separación de bienes con participación diferida / otro régimen permitido por la ley). [Verifique el régimen supletorio y las modalidades permitidas por el Código de Familia vigente.]
+SEGUNDA (bienes aportados): Cada uno declara que aporta al matrimonio los siguientes bienes: ___ (descripción, valor y gravámenes), que se mantendrán como propios.
+TERCERA (administración y disposición): Cada cónyuge administrará y dispondrá libremente de sus bienes, con las restricciones que se acuerden: ___.
+CUARTA (bienes adquiridos durante el matrimonio): ___ (regla para bienes adquiridos a título oneroso o gratuito, frutos y mejoras).
+QUINTA (obligaciones de sostenimiento): Ambos contribuirán al sostenimiento del hogar en proporción de ___.
+SEXTA (efectos frente a terceros e inscripción): Se autoriza al notario para inscribir las capitulaciones en el Registro Civil y, si afectan inmuebles, en el Registro Inmobiliario.
+CIERRE: Leída a los comparecientes, la aprueban y firmamos en ___ a las ___ horas. ___ (firmas).` }];
+
+MACH.matrimonio = [{ t: "Matrimonio civil celebrado ante notario (§11.2)", x: `[Requisitos previos: cédulas, certificaciones de nacimiento y de estado civil recientes de ambos contrayentes, consentimiento de representantes si hay menores y dispensa judicial cuando corresponda, declaración de no existencia de impedimentos y presencia de testigos exigidos por el Código de Familia. Verifique el procedimiento y los requisitos de edad, estado civil y testigos con el Código de Familia y la guía de la DNN.]
+
+ESCRITURA NÚMERO ___. Ante mí, ___, notario público, a las ___ horas del ___ de ___ de dos mil veintiséis, en ___ comparecen ___ y ___ (datos), con los testigos ___ y ___ (datos), quienes DICEN: Que han resuelto contraer matrimonio, declaran no existir impedimento legal, expresan libremente su voluntad de tomarse por esposos, y yo, en ejercicio de las facultades que me confiere el ordenamiento, DECLARO que ___ y ___ quedan unidos en matrimonio civil. Declaran como régimen patrimonial: ___. Se autoriza al notario para inscribir el matrimonio en el Registro Civil.
+CIERRE: Leída, aprobada y firmada.` }];
+
+MACH.divorcio = [{ t: "Convenio de separación judicial o divorcio por mutuo acuerdo (§11.3)", x: `[El convenio notarial se presenta para homologación judicial y se inscribe en el Registro Civil tras la sentencia o resolución. Verifique si la vía vigente según el Código Procesal de Familia modifica los pasos descritos.]
+
+ESCRITURA NÚMERO ___. Ante mí, ___, notario público, comparecen ___ y ___ (datos), casados entre sí desde el ___, y DICEN: Que de común acuerdo desean ___ (separarse judicialmente / divorciarse), y convienen lo siguiente:
+PRIMERA (hijos menores): guarda, crianza y educación a cargo de ___, régimen de comunicación ___, pensión alimentaria de ___ pagadera ___, sujeta a ajuste ___, aprobada de forma tentativa por cuanto debe ser homologada y puede ser revisada por el juez en su interés superior.
+SEGUNDA (pensión entre cónyuges): ___ (renuncian o fijan monto).
+TERCERA (bienes y gananciales): ___ (inventario, adjudicación y compensación).
+CUARTA (deudas): ___.
+QUINTA (apellidos y otros): ___.
+SEXTA (homologación): Se autoriza al notario o al abogado a presentar el convenio al juzgado de familia competente para su homologación.` }];
+
+MACH.patrimonio = [{ t: "Afectación a patrimonio familiar (§11.4)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparece ___ (propietario) y ___ (cónyuge o beneficiario, si aplica), quienes DICEN: Que el compareciente es dueño de la finca matrícula ___, naturaleza ___, linderos ___, y que AFECTA dicho inmueble a patrimonio familiar a favor de ___ (cónyuge e hijos menores o incapaces), en los términos del Código de Familia. Declara que el bien no está gravado salvo ___ y que la afectación no lesiona derechos de terceros. Se autoriza la inscripción en el Registro Inmobiliario.
+[Verifique en el Código de Familia el límite de valor y los requisitos de capacidad del beneficiario.]` }];
+
+MACH.reconocimiento = [{ t: "Reconocimiento de hijo (§11.5)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparece ___ (datos), quien DICE: Que es padre/madre biológico de ___ (nombre, fecha de nacimiento, lugar, inscrito en el Registro Civil al tomo ___ folio ___ asiento ___), y que por este acto lo RECONOCE como hijo con todos los derechos y obligaciones que la ley establece. Autoriza la inscripción en el Registro Civil.
+[Si el reconocido es mayor de edad, verifique su consentimiento; si es menor, los requisitos que exija el Registro Civil y el Código de Familia.]` }];
+
+MACH["renuncia-gan"] = [{ t: "Renuncia de gananciales o reconocimiento de aporte (§32.8)", x: `PRIMERO: ___ y ___ son casados entre sí desde ___.
+SEGUNDO: ___ RENUNCIA expresamente a todo derecho de ganancialidad que pudiera corresponderle sobre el bien ___ [o: RECONOCE que el bien ___ fue aportado al matrimonio por ___ y le pertenece exclusivamente].
+TERCERO: Declara haber sido informado por el suscrito notario del valor y trascendencia legal de esta renuncia.
+[Es obligatoria la información sobre el valor y trascendencia de las renuncias (art. 34 b).]` }];
+
+MACH.autenticacion = [{ t: "Razón de autenticación de firma (§9.5)", x: `«Yo, ___, notario público con oficina abierta en ___, carné número ___, DOY FE: que la firma que antecede es auténtica, por haber sido puesta en mi presencia por ___, mayor, ___ (estado civil), ___ (profesión), vecino de ___, portador de la cédula de identidad número ___, a quien identifiqué por medio de ___ y a quien le leí el contenido del documento. Es todo. En ___ a las ___ horas del ___ de ___ de dos mil veintiséis». Firma y sello del notario.
+[Si la razón no cabe en el documento, use papel notarial de seguridad. No autentique firmas en blanco.]` },
+{ t: "Autenticación por firma a ruego (§17.3)", x: `«...DOY FE de que la firma que antecede fue puesta en mi presencia por ___, a ruego de ___, quien no sabe/no puede firmar y puso su huella digital del dedo ___ de la mano ___ junto a ella. Identifico a ambos por ___».` },
+{ t: "Autorización de salida del país de una persona menor de edad (§33.1)", x: `[Verifique con la Dirección General de Migración y Extranjería los requisitos vigentes: formulario, fotografías, copias de documentos y vigencia de la autorización.]
+
+«ACTA/ESCRITURA NÚMERO ___ o AUTENTICACIÓN. Yo, ___, notario público, doy fe de que comparece ___ (padre/madre/representante legal, cédula ___), quien manifiesta que AUTORIZA la salida del país de su hijo(a) ___ (cédula o pasaporte ___, nacido el ___), acompañado(a) de ___ (acompañante, identificación) con destino a ___, desde el ___ hasta el ___, por el motivo de ___. Declara bajo fe de juramento ejercer la representación legal y que no existe impedimento judicial para esta salida. Hago constar que identifiqué al compareciente y verifiqué el vínculo con el menor mediante ___ (certificación de nacimiento o citas del Registro Civil)».
+[Si hay otro progenitor con patria potestad compartida, verifique si se exige su consentimiento y qué ocurre ante oposición.]` }];
+
+MACH.certificacion = [{ t: "Certificación notarial de documento (§11.12)", x: `«Yo, ___, notario público, CERTIFICO: que la copia que antecede es fiel y exacta del documento original que tengo a la vista, compuesta de ___ hojas».` },
+{ t: "Certificación de documento privado (§17.3)", x: `«Yo, ___, notario público con oficina en ___, a solicitud de ___, CERTIFICO: que la copia que antecede, compuesta de ___ folios, es fiel y exacta del original que tuve a la vista, el cual me fue exhibido por ___ el día ___ a las ___ horas, y que certifico [literalmente / en lo conducente / en relación]. Dejo copia auténtica en mi archivo de referencias. Pagadas las especies fiscales de ley».` }];
+
+MACH["acta-notarial"] = [{ t: "Acta de constatación (§11.11)", x: `«Yo, ___, notario público, a solicitud de ___, me constituí a las ___ horas del ___ en ___, y HAGO CONSTAR lo siguiente: ___ (descripción objetiva de lo que percibo con mis sentidos: estado de bienes, hechos, documentos exhibidos, actos de otras personas, con fotografías u otros anexos que se protocolizan). Leí el acta al requirente, quien la aprobó y firma conmigo».
+[Describa solo lo que el notario percibe; no emita juicios jurídicos.]` },
+{ t: "Declaración jurada (§11.11)", x: `«Comparece ___ (datos), quien previamente advertido de las penas del perjurio y falso testimonio, DECLARA bajo fe de juramento que ___ (hechos). Esta declaración se otorga para presentar ante ___».
+[Úsese para estado civil, convivencia, unión de hecho, ausencia de impedimentos y manifestaciones requeridas por trámites ante instituciones.]` },
+{ t: "Acta de notificación o requerimiento (§17.1)", x: `«ACTA NÚMERO ___. Yo, ___, notario público con oficina en ___, a solicitud de ___ (nombre, cédula, calidades), quien me requiere para que notifique/requiera a ___ lo siguiente: ___ (texto íntegro de la comunicación), me constituí a las ___ horas del ___ de ___ de dos mil ___ en ___ (dirección exacta). Fui atendido por ___ (nombre y cédula, o «nadie me atendió»), a quien me identifiqué como notario, le expliqué el motivo de mi visita, que actuaba por encargo de ___, y su derecho a hacer constar las manifestaciones que estime pertinentes. Se le entregó copia de este requerimiento, que [recibió / se negó a recibir]. Manifestó: ___. Doy fe de lo anterior. Concluyo a las ___ horas. (Firma y sello)»` },
+{ t: "Acta de presencia: estado de bienes (§17.1)", x: `«ACTA NÚMERO ___. Yo, ___, notario público, a solicitud de ___, me constituí el ___ a las ___ horas en ___ (descripción del lugar) y HAGO CONSTAR, por haberlo percibido directamente: ___ (descripción ordenada: medidas, estado, daños, objetos presentes, fotografías que se adjuntan con número y descripción). El acta se ha levantado sin juicio de valor sobre las causas. Anexo ___ fotografías, que identifico con mi firma. (Firma y sello)»
+[Cuide que el relato sea objetivo, indique hora y fecha y distinga lo percibido de lo que le manifiestan terceros.]` },
+{ t: "Acta de sorteo, rifa o concurso (§33.3)", x: `«ACTA NÚMERO ___. Yo, ___, notario público, a solicitud de ___ (organizador), me constituí el ___ a las ___ horas en ___ para presenciar el sorteo denominado ___. HAGO CONSTAR: a) Se presentaron las bases del sorteo, que anexo; b) se verificaron ___ participantes inscritos; c) el método de selección fue ___; d) resultaron ganadores: ___. No se presentaron reclamos durante el acto. Concluyó a las ___ horas».` },
+{ t: "Acta de presencia en asamblea (§33.4)", x: `«ACTA NÚMERO ___. Yo, ___, notario público, a solicitud de ___, asistí el ___ a las ___ horas a la asamblea de ___ celebrada en ___. HAGO CONSTAR: la convocatoria exhibida (fecha, medio y anticipación); los asistentes y su representación [detalle]; el quórum verificado a la hora [hora]; los puntos de la agenda y las votaciones tal como fueron anunciadas por el presidente; y las manifestaciones relevantes de los asistentes. No emito juicio sobre la validez de los acuerdos».` },
+{ t: "Acta de entrega o recepción de bienes (§33.5)", x: `«ACTA NÚMERO ___. Yo, ___, notario, a solicitud de ___, me constituí el ___ a las ___ horas en ___ para constatar la entrega de ___ (bien) que hace ___ a favor de ___. HAGO CONSTAR: el estado aparente de ___, con inventario anexo de ___ elementos, fotografías numeradas del ___ al ___, lecturas de medidores ___, llaves y accesorios entregados ___. Los presentes manifiestan ___. Concluyó a las ___».` }];
+
+MACH.otros = [{ t: "Razón de fecha cierta (§11.12)", x: `«Yo, ___, notario, doy fe de que el documento que antecede, firmado por ___, me fue presentado hoy ___ a las ___, por lo que tiene fecha cierta desde este día».` },
+{ t: "Ulterior testimonio (§11.12)", x: `«Expido un ulterior testimonio a solicitud de ___, con los timbres de ley, que concuerda con la matriz que obra en mi protocolo».` },
+{ t: "Engrose de primer testimonio (§18.1)", x: `«Es primer testimonio de la escritura número ___, que inicia en la página ___ del tomo ___ de mi protocolo, que concuerda con su matriz con la cual fue debidamente confrontado. Expido este testimonio [en el mismo acto de firmarse la escritura / en ___ a las ___ horas del ___] para ___ (interesado), con los timbres y especies fiscales de ley que se cancelan. Es todo». (Firma y sello)` },
+{ t: "Retiro de documento sin inscribir (§23.9)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparece ___ (titular del derecho contenido en el documento), quien DICE: Que presentó al Registro Nacional el documento ___, bajo las citas de presentación ___, y que por este acto SOLICITA su retiro sin inscribir y la correspondiente insubsistencia del asiento de presentación. Declara que renuncia a la inscripción en este trámite. Se autoriza al notario para presentar este instrumento y retirar el documento.
+[Esta solicitud está exenta de derechos de registro e impuestos.]` },
+{ t: "Escritura adicional o de aclaración (§23.11)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparecen los mismos otorgantes de la escritura número ___ de las ___ horas del ___, autorizada por el notario ___ en el tomo ___ folio ___, y DICEN: Que en dicho instrumento se incurrió en el siguiente error u omisión: ___. Que por este acto lo CORRIGEN en el sentido de que donde dice [texto erróneo] debe decir [texto correcto], sin que ello constituya nuevo acto ni contrato. Leída, la aprueban y firman.
+[Después, consigne la nota marginal en la escritura principal (art. 97) o notifique al notario o al Archivo.]` },
+{ t: "Nota marginal de referencia (§23.12)", x: `«NOTA MARGINAL: Esta escritura número ___ fue [adicionada / rescindida / modificada / revocada] por la escritura número ___, otorgada ante el notario ___ a las ___ horas del ___, que consta al tomo ___, folio ___ de su protocolo. En ___, a las ___ horas del ___». (Firma y sello del notario)` },
+{ t: "Razón de cierre de tomo (§15.3)", x: `«Cierro este tomo número ___ del protocolo del suscrito notario ___, que contiene ___ instrumentos públicos, de la escritura número uno a la escritura número ___, todos debidamente firmados por los otorgantes y testigos en los casos que corresponde, con ___ folios útiles, en buen estado de conservación. [Observaciones: ___]. En ___, a las ___ horas del ___ de ___ de dos mil ___». (Firma y sello del notario)` },
+{ t: "Contrato de servicios notariales (§24.1)", x: `CONTRATO DE SERVICIOS NOTARIALES. Entre ___ (notario) y ___ (usuario), se conviene:
+1. Objeto: ___ (acto o contrato).
+2. Honorarios: ___ colones, calculados conforme al Arancel (art. ___), [más recargo de 50 % por complejidad, con convenio escrito, si aplica].
+3. Gastos: timbres, impuestos, derechos de registro y demás gastos estimados en ___ colones, que se pagan por adelantado y se reembolsan o aplican conforme al recibo oficial.
+4. Reparto: por partes iguales entre las partes salvo pacto: ___.
+5. Plazo: el notario presentará el documento al Registro dentro de ___ días hábiles después del otorgamiento.
+6. Desistimiento: si el usuario desiste y el documento ya está confeccionado, paga el 50 % de los honorarios.
+7. Mora: 2 % mensual sobre sumas adeudadas.
+8. Documentos y datos: el usuario garantiza la veracidad y entrega los documentos requeridos; autoriza el tratamiento de sus datos para el cumplimiento de la ley, incluida la prevención de legitimación de capitales.
+9. Responsabilidad: el notario responde por sus actuaciones conforme a la ley; no es válido relevarlo de responsabilidad (art. 15).
+Firmas.` },
+{ t: "Recibo oficial de dinero (§24.2)", x: `«RECIBO NÚMERO ___. Recibí de ___ (cédula ___) la suma de ___ por concepto de [honorarios por ___ / dinero para pagar timbres, derechos e impuestos de ___ / ambos]. Fecha: ___. Desglose: honorarios ___; timbres ___; impuesto de traspaso ___; derechos de registro ___; otros ___». (Firma y sello del notario)` }];
+
+/* Machotes adicionales sin ficha propia, ligados a actos cercanos */
+MACH.compraventa.push(
+{ t: "Compraventa de derechos indivisos (§32.3)", x: `PRIMERA: ___ es dueño del derecho ___ (fracción) de la finca matrícula ___, derecho identificado como ___, que comparte en común con ___ (condueños).
+SEGUNDA: Vende ese derecho a ___ por ___, con todo lo que le pertenezca.
+TERCERA: LA PARTE VENDEDORA declara que ha respetado los derechos de preferencia de los condueños que corresponden por ley (o: obtuvo renuncia de ellos) y que no hay procesos pendientes.
+CUARTA: La parte compradora se subroga en la posición de comunero en la finca madre.
+[Si el comprador pretende localizar su derecho, véase la competencia notarial del art. 129. Verifique la normativa sobre derecho de preferencia aplicable.]` },
+{ t: "Pacto de retroventa, cláusula (§38.2)", x: `«PACTO DE RETROVENTA: LA PARTE VENDEDORA se reserva el derecho de recuperar el inmueble vendido mediante la devolución a LA PARTE COMPRADORA de ___ colones, suma que corresponde al precio pagado. Este derecho puede ejercerse hasta el ___, plazo que no excede cinco años. La devolución se hará en el domicilio de LA PARTE COMPRADORA contra el otorgamiento de la escritura respectiva. No se reconocerán intereses».` },
+{ t: "Rescisión o resolución de contrato (§38.3)", x: `PRIMERO: Por escritura número ___ de las ___ horas del ___, otorgada ante el notario ___, [presentada al Registro bajo citas ___], ___ vendió a ___ la finca matrícula ___ por ___.
+SEGUNDO: Por mutuo acuerdo, las partes RESUELVEN dicho contrato por [incumplimiento / acuerdo / otra causa], por lo que la finca retorna a ___.
+TERCERO: La operación resuelta se estima en ___ y las partes pagan los tributos correspondientes.
+CUARTO: Se solicita la inscripción del retorno de dominio.
+[Para rescisión por nulidad relativa, cambie a: se rescinde por la patología descrita ___.]` },
+{ t: "Reunión de fincas (§38.8)", x: `PRIMERO: ___ es dueño de las fincas matrículas ___ y ___ (descripción completa de cada una), colindantes entre sí.
+SEGUNDO: Las REÚNE en una sola finca, que será descrita así conforme al plano catastrado número ___: naturaleza ___, situación ___, medida ___, linderos ___.
+TERCERO: Se cancelan las fincas reunidas y se constituye la nueva matrícula.
+CUARTO: Declara que las fincas reunidas son del mismo titular y que sus gravámenes se trasladan a la finca resultante según los asientos: ___.
+[Verifique en la Guía los requisitos de plano y gravámenes de la reunión.]` },
+{ t: "Constitución de usufructo (§23.5)", x: `PRIMERA: EL PROPIETARIO constituye usufructo [vitalicio / por ___ años] sobre ___ a favor de EL USUFRUCTUARIO, quien lo acepta.
+SEGUNDA (derechos y obligaciones): usar y disfrutar, conservar la forma y sustancia, pagar impuestos y gastos ordinarios, asegurar el bien.
+TERCERA (garantía): ___ (dispensa o caución).
+CUARTA (extinción): por muerte, vencimiento, renuncia o consolidación.
+[En reservas gratuitas de uso, usufructo o habitación no es indispensable la aceptación del beneficiario (art. 98).]` });
+
+MACH.donacion.push(
+{ t: "Cesión de derechos hereditarios (§23.7)", x: `PRIMERA: Que en la sucesión de ___ (cédula ___, fallecido el ___), tramitada [en el expediente ___ / aún no iniciada], el cedente ___ ostenta la calidad de ___ y es titular de ___ (porción).
+SEGUNDA: CEDE y TRASPASA a EL CESIONARIO sus derechos en la sucesión, sobre ___ (todo o parte, determinando bienes), por el precio de ___.
+TERCERA: El cedente responde de la existencia de su derecho pero no del activo ni de la solvencia de la sucesión.
+CUARTA: Se notificará al albacea y al despacho que conoce el proceso.
+[Verifique reglas sobre cesión de derechos hereditarios y su inscripción.]` },
+{ t: "Adjudicación en sucesión por acuerdo de herederos (§38.4)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, comparecen: ___, ___ y ___ (datos), quienes manifiestan ser los únicos herederos declarados en la sucesión de ___ (cédula ___, fallecido el ___, estado civil ___), tramitada en el expediente ___. DICEN:
+PRIMERO: Edicto publicado en el Boletín Judicial el ___; declaratoria de herederos el ___.
+SEGUNDO: Valor de los bienes según avalúo pericial de ___ o valor tributario actualizado al ___ con inventario presentado el ___.
+TERCERO: Acuerdan adjudicar la finca matrícula ___ (descripción completa y plano) a ___ por la suma de ___, que no es inferior al avalúo.
+CUARTO: [Si hay menores, ausentes o personas con discapacidad: este acuerdo queda sujeto a la homologación del tribunal conforme a la resolución ___].
+QUINTO: Se autoriza la inscripción.` },
+{ t: "Protocolización de proyecto distributivo (§38.5)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, SE PROTOCOLIZA, conforme al art. 105 del Código Notarial, el proyecto distributivo aprobado en el expediente judicial número ___ del juzgado ___, mediante el auto de las ___ horas del ___. Copio en lo conducente: [proyecto distributivo y auto aprobatorio]. Confronté con el expediente y resultó conforme. Quedan copias en el archivo de referencias.
+[Aquí no se requiere comparecencia: la forma documental es la protocolización.]` },
+{ t: "Protocolización de remate (§38.6)", x: `ESCRITURA NÚMERO ___. Ante mí, ___, notario, SE PROTOCOLIZAN las siguientes piezas del expediente ___: el edicto publicado el ___; el acta de remate de las ___ horas del ___; el auto que aprobó el remate; y los autos que ordenan cancelar gravámenes y anotaciones: ___. Confronté con el expediente y resultó conforme.` },
+{ t: "Dación de fe sobre estado civil (§38.1)", x: `«Yo, ___, notario público, DOY FE, con vista de la certificación del Registro Civil que tengo a la vista, de que el señor ___, cédula ___, adquirió la finca matrícula ___ en estado civil ___, según consta en el asiento registral, y que su estado civil en esa fecha, conforme al Registro Civil, era ___. En consecuencia, el estado civil correcto del titular a la fecha de adquisición era ___. Se solicita al Registro modificar el asiento».
+[La Guía indica que esta dación de fe basta y no tiene que constar en la matriz.]` });
+/*MACH_END*/
+const GROUPS = [["inm", "Inmuebles"], ["veh", "Vehículos y prendas"], ["soc", "Sociedades y personas jurídicas"], ["pod", "Poderes, testamentos y fideicomiso"], ["fam", "Familia"], ["ext", "Autenticaciones, actas y trámites"]];
+const S = { adj: true, iva: true, pactado: 0, otros: 0, rec: false };
+const state = { view: "cot", act: "compraventa", tab: "cot", vals: {} };
+const $ = s => document.querySelector(s);
+const byId = id => ACTS.find(a => a.id === id);
+const fd = n => (n ? String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ".") : "");
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function rawVals(a) {
+  if (!state.vals[a.id]) { state.vals[a.id] = {}; a.inputs.forEach(i => state.vals[a.id][i.k] = i.d); }
+  return state.vals[a.id];
+}
+function numVals(a) {
+  const r = rawVals(a), o = {};
+  a.inputs.forEach(i => o[i.k] = (i.type === "money" || i.type === "int") ? (Number(r[i.k]) || 0) : r[i.k]);
+  return o;
+}
+
+/* ---------- Lista y panel ---------- */
+function asideHTML() {
+  let h = '<input type="search" id="q" placeholder="Buscar acto…" aria-label="Buscar acto">';
+  for (const [g, name] of GROUPS) {
+    h += '<div class="grp" data-g="' + g + '"><h4>' + name + "</h4>";
+    for (const a of ACTS.filter(x => x.g === g)) h += '<button class="act" data-act="' + a.id + '" aria-current="' + (a.id === state.act) + '">' + esc(a.name) + "</button>";
+    h += "</div>";
+  }
+  return h;
+}
+function mselHTML() {
+  let h = '<select class="msel" id="msel" aria-label="Elegir acto">';
+  for (const [g, name] of GROUPS) {
+    h += '<optgroup label="' + name + '">';
+    for (const a of ACTS.filter(x => x.g === g)) h += '<option value="' + a.id + '"' + (a.id === state.act ? " selected" : "") + ">" + esc(a.name) + "</option>";
+    h += "</optgroup>";
+  }
+  return h + "</select>";
+}
+function formHTML(a) {
+  const v = rawVals(a);
+  let h = "";
+  for (const i of a.inputs) {
+    const id = "f_" + i.k, hint = i.hint ? '<div class="hint">' + esc(i.hint) + "</div>" : "";
+    if (i.type === "money") h += '<div class="fld"><label for="' + id + '">' + esc(i.label) + '</label><div class="money"><span>₡</span><input type="text" id="' + id + '" data-k="' + i.k + '" data-t="money" inputmode="numeric" autocomplete="off" value="' + fd(v[i.k]) + '"></div>' + hint + "</div>";
+    else if (i.type === "int") h += '<div class="fld"><label for="' + id + '">' + esc(i.label) + '</label><input type="number" id="' + id + '" data-k="' + i.k + '" data-t="int" min="' + i.min + '" value="' + v[i.k] + '">' + hint + "</div>";
+    else if (i.type === "select") h += '<div class="fld"><label for="' + id + '">' + esc(i.label) + '</label><select id="' + id + '" data-k="' + i.k + '" data-t="sel">' + i.opts.map(o => '<option value="' + o[0] + '"' + (o[0] === v[i.k] ? " selected" : "") + ">" + esc(o[1]) + "</option>").join("") + "</select>" + hint + "</div>";
+    else h += '<div class="fld"><label class="chk"><input type="checkbox" id="' + id + '" data-k="' + i.k + '" data-t="chk"' + (v[i.k] ? " checked" : "") + "> <span>" + esc(i.label) + "</span></label>" + hint + "</div>";
+  }
+  h += '<fieldset><legend>Ajustes del cobro</legend>' +
+    '<div class="fld"><label for="s_pact">Honorario pactado (₡, opcional)</label><div class="money"><span>₡</span><input type="text" id="s_pact" data-s="pactado" data-t="money" inputmode="numeric" value="' + fd(S.pactado) + '"></div><div class="hint">Reemplaza el honorario del arancel. Por escrito y sin exceder 50 % más del arancel (art. 143 f).</div></div>' +
+    '<div class="fld"><label for="s_otros">Otros gastos o timbres (₡)</label><div class="money"><span>₡</span><input type="text" id="s_otros" data-s="otros" data-t="money" inputmode="numeric" value="' + fd(S.otros) + '"></div></div>' +
+    '<div class="fld"><label class="chk"><input type="checkbox" id="s_rec" data-s="rec"' + (S.rec ? " checked" : "") + "> <span>Acto complejo con convenio escrito: recargo de 50 % (art. 71)</span></label></div></fieldset>";
+  return h;
+}
+function row(l, amt, chip) {
+  return '<div class="row"><div class="lab">' + esc(l.label) + (chip || "") + "<small>" + esc(l.basis || "") + (l.ref ? " · " + l.ref : "") + (l.min ? " · se aplica el mínimo" : "") + '</small></div><div class="amt">' + amt + "</div></div>";
+}
+const CH = { ok: ["ok", "Manual"], ref: ["ref", "Referencia"], pend: ["pend", "Confirmar"] };
+function resultHTML(a) {
+  const q = quote(a, numVals(a), S);
+  let h = '<div class="ledger">';
+  if (q.res.base) h += '<div class="row"><div class="lab"><b>' + esc(q.res.base[0]) + '</b></div><div class="amt">' + fmt(q.res.base[1]) + "</div></div>";
+  h += "<h3>Honorarios</h3>" + q.hon.map(l => row(l, fmt(l.amount))).join("");
+  if (q.pact) h += row({ label: "Honorario pactado", basis: "Reemplaza el arancel de " + fmt(q.pact.arancel) }, fmt(q.pact.value));
+  if (S.iva) h += row({ label: "IVA 13 % sobre honorarios", basis: "Confirme el tratamiento con Hacienda" }, fmt(q.iva));
+  h += '<div class="row sum"><div class="lab">Honorarios' + (S.iva ? " con IVA" : "") + '</div><div class="amt">' + fmt(q.honBase + q.iva) + "</div></div>";
+  h += "<h3>Timbres, impuestos y derechos</h3>";
+  if (!q.tim.length) h += '<p class="empty">Este trámite no tiene timbres calculados aquí.</p>';
+  h += q.tim.map(l => { const c = CH[l.st]; return row(l, l.amount == null ? "por confirmar" : fmt(l.amount), '<span class="chip ' + c[0] + '">' + c[1] + "</span>"); }).join("");
+  if (q.otros) h += row({ label: "Otros gastos o timbres", basis: "Ingresados manualmente" }, fmt(q.otros));
+  h += '<div class="row sum"><div class="lab">Gastos (timbres e impuestos)</div><div class="amt">' + fmt(q.gastos) + "</div></div></div>";
+  h += '<div class="total"><span>Total a cobrar por adelantado (art. 67)</span><b>' + fmt(q.total) + "</b></div>";
+  const t = q.total;
+  h += '<div class="split">' + ({ iguales: "Por partes iguales salvo pacto (art. 68): " + fmt(Math.round(t / 2)) + " cada parte.", deudor: "A cargo del deudor (art. 68).", unico: "Un solo solicitante." }[a.payer]) + "</div>";
+  if (q.pend) h += '<div class="note bad">' + q.pend + " rubro(s) sin monto: el total no los incluye. Confirme su valor antes de cobrar.</div>";
+  if (q.pact && q.pact.low) h += '<div class="note bad">El honorario pactado es menor al arancel: cobrar por debajo es falta sancionable (art. 143 f).</div>';
+  if (q.pact && q.pact.high) h += '<div class="note">El pacto excede en más de 50 % el arancel. Debe constar por escrito; el exceso no fundamentado se devuelve.</div>';
+  (q.res.notes || []).forEach(n => h += '<div class="note">' + esc(n) + "</div>");
+  h += '<p class="hint">Etiquetas: <span class="chip ok">Manual</span> tomado de textos oficiales citados en el manual · <span class="chip ref">Referencia</span> fuente secundaria o supuesto · <span class="chip pend">Confirmar</span> sin monto.</p>';
+  h += '<button class="btn" data-copy="1">Copiar cotización</button> <span id="cmsg" class="hint"></span><textarea id="ctext" hidden rows="10" style="width:100%;margin-top:8px"></textarea>';
+  return h;
+}
+function quoteText(a) {
+  const q = quote(a, numVals(a), S);
+  let t = "COTIZACIÓN NOTARIAL · " + a.name + "\n";
+  if (q.res.base) t += q.res.base[0] + ": " + fmt(q.res.base[1]) + "\n";
+  t += "\nHonorarios\n" + q.hon.map(l => "  " + l.label + ": " + fmt(l.amount)).join("\n");
+  if (q.pact) t += "\n  Honorario pactado: " + fmt(q.pact.value);
+  if (S.iva) t += "\n  IVA 13 %: " + fmt(q.iva);
+  t += "\n\nTimbres, impuestos y derechos\n" + q.tim.map(l => "  " + l.label + ": " + (l.amount == null ? "por confirmar" : fmt(l.amount))).join("\n");
+  if (q.otros) t += "\n  Otros gastos: " + fmt(q.otros);
+  return t + "\n\nTOTAL: " + fmt(q.total) + "\n(Arancel " + (S.adj ? "vigente reportado" : "base 2015") + "; valores sujetos a confirmación el día de la firma)";
+}
+function listBlk(title, arr, ordered) {
+  if (!arr || !arr.length) return "";
+  const t = ordered ? "ol" : "ul";
+  return '<section class="blk"><h3>' + title + "</h3><" + t + ' class="lst">' + arr.map(x => "<li>" + esc(x) + "</li>").join("") + "</" + t + "></section>";
+}
+function machoteList(a) { return (MACH[a.id] || []).concat([{ t: "Comparecencia y cierre base (art. 83 y siguientes)", x: BASE }]); }
+function machoteHTML(a) {
+  return '<p class="hint" style="max-width:75ch">Los guiones bajos son datos por completar. Lo que va entre [corchetes] son notas para el notario y se eliminan del texto final. Ajuste siempre las cláusulas al caso y confirme el texto contra el art. 83 y siguientes del Código Notarial y la Guía de Calificación Registral vigente.</p>' +
+    machoteList(a).map((m, i) => '<section class="blk mac"><div class="mh"><h3>' + esc(m.t) + '</h3><button class="btn sm" data-mcopy="' + i + '">Copiar</button></div><pre class="mtxt" id="m' + i + '">' + esc(m.x) + "</pre></section>").join("");
+}
+function panelHTML() {
+  const a = byId(state.act);
+  const tabs = [["cot", "Cotizar"], ["req", "Requisitos"], ["cla", "Cláusulas"], ["mac", "Machote"], ["adv", "Advertencias y registro"]];
+  let h = '<div class="head"><h2>' + esc(a.name) + '</h2><span class="tag">Manual ' + a.sec + '</span></div><div class="sub" role="tablist">' +
+    tabs.map(t => '<button role="tab" data-tab="' + t[0] + '" aria-selected="' + (state.tab === t[0]) + '">' + t[1] + "</button>").join("") + "</div>";
+  if (state.tab === "cot") h += '<div class="cot"><div class="panel" id="form">' + formHTML(a) + '</div><div class="panel" id="result">' + resultHTML(a) + "</div></div>";
+  else if (state.tab === "req") h += listBlk("Requisitos y verificaciones", a.info.req) || '<p class="empty">Sin requisitos específicos. Vea las verificaciones generales en Tablas, plazos y listas.</p>';
+  else if (state.tab === "cla") h += listBlk("Cláusulas esenciales, en orden de redacción", a.info.cla, true) || '<p class="empty">Este trámite no lleva cláusulas.</p>';
+  else if (state.tab === "mac") h += machoteHTML(a);
+  else h += listBlk("Reservas y advertencias del notario", a.info.adv) + listBlk("Registro y observaciones", a.info.reg) + listBlk("Errores frecuentes", ERR);
+  return h;
+}
+
+/* ---------- Tablas de referencia ---------- */
+const MINS = [["Honorario mínimo de instrumento público", 55000, "70"], ["Hora profesional", 82500, "63"], ["Casos no previstos", 110000, "65"], ["Revisión de traspaso de acciones", 220000, "79"], ["Sociedades especiales, sucursales y apoderados de extranjeras", 330000, "84"], ["Reserva de nombre o de prioridad", 55000, "85"], ["Acta notarial en la notaría", 55000, "89"], ["Acta notarial fuera de la notaría", 110000, "89"], ["Certificación notarial (por asiento)", 16500, "91"], ["Autenticación de firma (por firma)", 16500, "59 y 92"], ["Estudio de registro", 16500, "93"], ["Ulterior testimonio", 27500, "90"], ["Matrimonio civil", 110000, "94"], ["Capitulaciones (mínimo)", 110000, "94"], ["Divorcio sin gananciales", 110000, "94"], ["Divorcio con gananciales (mínimo)", 165000, "94"], ["Constitución de sociedades", 165000, "95 a"], ["Fusión o transformación", 165000, "95 b"], ["Aumento de capital; disolución", 82500, "95 c, d"], ["Otras modificaciones y nombramientos", 82500, "95 e"], ["Poderes", 82500, "96"], ["Testamentos", 110000, "97"], ["Fideicomiso: constitución (mínimo)", 165000, "98"], ["Razón de fecha cierta", 55000, "99"], ["Retiro sin inscribir", 55000, "100"], ["Agente residente (por sociedad al año)", 110000, "58"]];
+const CAL = [["Índices al Archivo Notarial", "Quincenal: 5 días hábiles después del día 15 y del último día de cada mes", "Arts. 26 y 27"], ["Primer testimonio", "Al firmar o dentro de 10 días hábiles", "Art. 117"], ["Acta redactada fuera del acto", "Dentro de 24 horas", "Art. 102"], ["Aviso de pérdida del protocolo", "Inmediato; detalle en 3 días; sanción si pasan 15", "Arts. 61 y 143 d"], ["Pérdida de boleta de seguridad", "Informar al Registro en 15 días", "Art. 143 g"], ["Cambio de oficina", "Comunicar a la DNN dentro del mes siguiente", "Art. 143 h"], ["Tomo concluido", "No retenerlo más de un mes", "Arts. 45 y 143 i"], ["Ausencia del país", "Más de 3 meses: depositar el protocolo; más de 6: inhabilitación", "Arts. 53 y 13"], ["Título con defecto", "Anotación provisional de 1 año", "Código Civil"], ["Acción disciplinaria", "Prescribe a los 2 años", "Art. 164"], ["Rectificación de cabida", "Protege a terceros 3 años tras la inscripción", "Ley 139, art. 13"]];
+const PREVIA = ["Identidad de todos los comparecientes verificada", "Capacidad apreciada y personería vigente", "Estudio registral actualizado", "Plano catastrado vigente y coincidente", "Valor fiscal y base imponible determinados", "Municipalidad y demás obligaciones al día", "Autorizaciones previas obtenidas (judiciales, cónyuge, socios)", "Sin interés prohibido del notario ni de testigos", "Honorarios informados y gastos recibidos con recibo", "Timbres y derechos calculados y disponibles", "Borrador revisado por las partes; reservas preparadas", "Testigos instrumentales presentes y sin impedimento"];
+const CIERRE = ["Honorarios y gastos recibidos por escrito", "Identidades, capacidad y personerías verificadas", "Estudio registral reciente y sin defectos", "Timbres calculados sobre la base correcta y enterados", "Instrumento leído, firmado, con salvedades antes de las firmas", "Testimonio expedido con razón de timbres y notas marginales", "Presentación al Registro dentro de plazo y seguimiento de defectos", "Índice y depósito del tomo en los plazos legales"];
+const ESTADO = [["Código Notarial (arts. 1 a 178)", "Verificado con el texto de la DNN"], ["Timbre de Archivos (Ley 43 y Ley 7202)", "Verificado con el texto de la ley"], ["Calificación registral de inmuebles", "Verificado con la Guía v1.17 (octubre de 2025)"], ["Timbre Agrario, tarifas base", "Verificado con el art. 14 de la Ley 5792"], ["Timbre Agrario, topes de vivienda", "Pendiente: resolución del INDER y TASABAN"], ["Timbre del Colegio, tramos base", "Verificado en el Arancel de 2015; ajuste de 10 % por fuentes secundarias"], ["Honorarios del Arancel vigentes", "Fuente secundaria (abril de 2026); confirmar en La Gaceta"], ["Antilavado (UIF Reportes, 2026)", "Fuente secundaria; confirmar en los lineamientos oficiales"], ["Fusión, reducción de capital, fundaciones", "Pendiente de verificar en textos oficiales"]];
+function tbl(head, rows, nums) {
+  return '<div class="scroll"><table><thead><tr>' + head.map(x => "<th>" + x + "</th>").join("") + "</tr></thead><tbody>" + rows.map(r => "<tr>" + r.map((c, i) => "<td" + (nums && nums.includes(i) ? ' class="n"' : "") + ">" + c + "</td>").join("") + "</tr>").join("") + "</tbody></table></div>";
+}
+function refHTML() {
+  const b = makeH({ adj: false }), j = makeH({ adj: true });
+  let h = '<section class="blk" style="max-width:none"><h3>Novedad 2026: UIF Reportes</h3><div class="note bad">Según lineamientos del 6 de julio de 2026, todo notario habilitado debe estar inscrito en UIF Reportes. El plazo transitorio venció el 6 de octubre de 2026. Fuente secundaria: confirme en los lineamientos oficiales (art. 15 ter, Ley 7786; multas de 2 a 100 salarios base, art. 81).</div></section>';
+  h += '<section class="blk" style="max-width:none"><h3>Tarifa General notarial (art. 74)</h3>' + tbl(["Tramo", "Porcentaje", "Base 2015", "Con ajuste de 10 %"], [["Hasta", "2 %", fmt(11e6), fmt(12.1e6)], ["Exceso hasta", "1,5 %", fmt(16.5e6), fmt(18.15e6)], ["Exceso hasta", "1,25 %", fmt(33e6), fmt(36.3e6)], ["Exceso de", "1 %", fmt(33e6), fmt(36.3e6)]], [2, 3]) + "</section>";
+  const CT = [["Hasta ₡250.000", 0], ["₡250.000 a ₡1.000.000", 1000], ["₡1.000.000 a ₡5.000.000", 2000], ["₡5.000.000 a ₡25.000.000", 5000], ["₡25.000.000 a ₡50.000.000", 10000], ["₡50.000.000 a ₡100.000.000", 15000], ["₡100.000.000 a ₡500.000.000", 25000], ["Más de ₡500.000.000", 50000], ["Acto de cuantía inestimable, certificación, autenticación (cada uno)", 250]];
+  h += '<section class="blk" style="max-width:none"><h3>Timbre del Colegio de Abogados (art. 109)</h3>' + tbl(["Cuantía", "Base 2015", "Ajustado (+10 %)"], CT.map(r => [r[0], r[1] ? fmt(r[1]) : "Exento", r[1] ? fmt(j.fix(r[1])) : "Exento"]), [1, 2]) + '<p class="hint">En traspasos se toma el mayor entre valor real y fiscal. Si el documento contiene varias operaciones, se suman.</p></section>';
+  h += '<section class="blk" style="max-width:none"><h3>Otros timbres e impuestos</h3>' + tbl(["Rubro", "Tarifa"], [["Derechos de registro de inmuebles (Ley 4564)", "₡5 por millar (0,5 %)"], ["Impuesto de traspaso de inmuebles (Ley 6999)", "1,5 %"], ["Impuesto de traspaso de vehículos", "2,5 %"], ["Timbre municipal (Ley 7794)", "₡2 por millar"], ["Timbre Agrario, traspaso de inmuebles", "₡1,50 por millar; vivienda ₡1,25 hasta un tope; interés social ₡1"], ["Timbre Agrario, vehículos", "₡3 por millar"], ["Hipoteca por el precio o parte del precio", "No paga timbre Agrario"], ["Archivos: documento para inscripción", "₡10 si la cuantía es menor a ₡100.000; ₡20 si es mayor o inestimable"], ["Archivos: índice quincenal", "₡20 por fórmula"], ["Archivos: tomo concluido depositado", "₡200"], ["Derechos de inscripción de vehículos", "₡1 por millar; traspaso ₡5 por millar (mínimo ₡2.000)"], ["Parques Nacionales (vehículos)", "₡500"], ["Autenticación de firma", "Fiscal ₡125; hoja ₡6,25 y ₡2,50 (mínimo ₡12,50); Archivo ₡5"]]) + "</section>";
+  h += '<section class="blk" style="max-width:none"><h3>Honorarios mínimos del Arancel</h3>' + tbl(["Acto o servicio", "Base 2015", "Reportado vigente", "Con IVA 13 %", "Art."], MINS.map(r => [r[0], fmt(r[1]), fmt(j.fix(r[1])), fmt(Math.round(j.fix(r[1]) * 1.13)), r[2]]), [1, 2, 3]) + '<p class="hint">Variantes: 50 % de la tarifa en cancelaciones, novación de deudor, hipoteca a favor del vendedor, renuncia de gananciales y opción de compraventa (art. 75); 25 % en rectificación y segregación en cabeza propia (art. 76); recargo de 50 % en actos complejos con convenio escrito (art. 71); mora de 2 % mensual (art. 64); desistimiento con documento hecho: 50 % (art. 72).</p></section>';
+  h += '<section class="blk" style="max-width:none"><h3>Calendario de obligaciones</h3>' + tbl(["Obligación", "Plazo", "Fuente"], CAL) + "</section>";
+  h += '<div class="cols"><section class="blk"><h3>Antes de la firma</h3>' + PREVIA.map(x => '<label><input type="checkbox"> <span>' + x + "</span></label>").join("") + '</section><section class="blk"><h3>Para cerrar el expediente</h3>' + CIERRE.map(x => '<label><input type="checkbox"> <span>' + x + "</span></label>").join("") + "</section></div>";
+  h += '<section class="blk" style="max-width:none"><h3>Qué está verificado y qué no</h3>' + tbl(["Tema", "Estado"], ESTADO) + "</section>";
+  return h;
+}
+
+/* ---------- Render y eventos ---------- */
+function render() {
+  const app = $("#app");
+  document.querySelectorAll("[data-view]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.view === state.view)));
+  $("#bar").hidden = state.view !== "cot";
+  if (state.view === "ref") { app.innerHTML = refHTML(); return; }
+  app.innerHTML = '<div class="grid"><aside>' + asideHTML() + "</aside><div>" + mselHTML() + '<div id="panel">' + panelHTML() + "</div></div></div>";
+}
+function refreshPanel() {
+  $("#panel").innerHTML = panelHTML();
+  document.querySelectorAll("aside .act").forEach(b => b.setAttribute("aria-current", String(b.dataset.act === state.act)));
+  const m = $("#msel"); if (m) m.value = state.act;
+}
+function refreshResult() { const r = $("#result"); if (r) r.innerHTML = resultHTML(byId(state.act)); }
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.view) { state.view = t.dataset.view; render(); }
+  else if (t.dataset.act) { state.act = t.dataset.act; state.tab = "cot"; refreshPanel(); }
+  else if (t.dataset.tab) { state.tab = t.dataset.tab; refreshPanel(); }
+  else if (t.dataset.mcopy !== undefined) {
+    const i = +t.dataset.mcopy, txt = machoteList(byId(state.act))[i].x, pre = document.getElementById("m" + i);
+    const sel = () => { const r = document.createRange(); r.selectNodeContents(pre); const g = getSelection(); g.removeAllRanges(); g.addRange(r); t.textContent = "Seleccionado: copie con Ctrl+C"; };
+    try { navigator.clipboard.writeText(txt).then(() => { t.textContent = "Copiado"; setTimeout(() => t.textContent = "Copiar", 1800); }, sel); } catch (err) { sel(); }
+  }
+  else if (t.dataset.copy) {
+    const txt = quoteText(byId(state.act)), msg = $("#cmsg"), ta = $("#ctext");
+    const fallback = () => { ta.hidden = false; ta.value = txt; ta.select(); msg.textContent = "Seleccione y copie el texto."; };
+    try { navigator.clipboard.writeText(txt).then(() => msg.textContent = "Copiada.", fallback); } catch (err) { fallback(); }
+  }
+});
+function onField(t) {
+  const isS = t.dataset.s, k = isS || t.dataset.k;
+  let val;
+  if (t.dataset.t === "money") {
+    const pos = t.selectionStart, before = t.value.slice(0, pos).replace(/\D/g, "").length;
+    val = parseInt(t.value.replace(/\D/g, ""), 10) || 0;
+    t.value = fd(val);
+    let c = 0, i = 0; for (; i < t.value.length && c < before; i++) if (/\d/.test(t.value[i])) c++;
+    try { t.setSelectionRange(i, i); } catch (err) {}
+  } else if (t.dataset.t === "chk" || t.type === "checkbox") val = t.checked;
+  else if (t.dataset.t === "int") val = parseInt(t.value, 10) || 0;
+  else val = t.value;
+  if (isS) S[k] = val; else rawVals(byId(state.act))[k] = val;
+  refreshResult();
+}
+document.addEventListener("input", e => { const t = e.target; if (t.dataset && (t.dataset.k || t.dataset.s)) onField(t); else if (t.id === "q") filter(t.value); else if (t.id === "c_usd" || t.id === "c_tc") conv(); });
+document.addEventListener("change", e => {
+  const t = e.target;
+  if (t.id === "msel") { state.act = t.value; state.tab = "cot"; refreshPanel(); }
+  else if (t.id === "s_adj") { S.adj = t.value === "adj"; refreshResult(); }
+  else if (t.id === "s_iva") { S.iva = t.checked; refreshResult(); }
+  else if (t.dataset && t.dataset.k && (t.tagName === "SELECT" || t.type === "checkbox")) { onField(t); if (t.tagName === "SELECT" && state.tab === "cot") { /* selects only change values */ } }
+});
+function filter(q) {
+  q = q.toLowerCase();
+  document.querySelectorAll("aside .grp").forEach(g => {
+    let any = false;
+    g.querySelectorAll(".act").forEach(b => { const m = b.textContent.toLowerCase().includes(q); b.hidden = !m; any = any || m; });
+    g.hidden = !any;
+  });
+}
+function conv() {
+  const p = s => parseFloat(String(s).replace(",", ".")) || 0;
+  $("#c_out").textContent = fmt(Math.round(p($("#c_usd").value) * p($("#c_tc").value)));
+}
+render();
+</script>
+
+</body>
+</html>
